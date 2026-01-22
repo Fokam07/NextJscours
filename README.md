@@ -16,29 +16,31 @@
 | Qwik                | ✔️  |     | ✔️  |
 
 # Exercie006:
-Framework | Frontend | Backend | Full-Stack |
-Next.js   |    x     |         |      x     |
-Nuxt.js   |    x     |         |      x     |
-Nest.js   |          |    x    |            |      
-React	  |    x     |         |     		|
-Angular	  |    x     |         |     		|
-Vue.js	  |    x     |         |     		|
-Svelte	  |    x     |         |     	    |
-Express.js|          |     x   |     		|	
-Remix	  |    x     |         |     x		|
-Astro     |    x     |         |            |
+| Framework   | Frontend | Backend | Full-Stack |
+|-------------|----------|---------|------------|
+| Next.js     |    x     |         |      x     |
+| Nuxt.js     |    x     |         |      x     |
+| Nest.js     |          |    x    |            |      
+| React       |    x     |         |            |
+| Angular     |    x     |         |            |
+| Vue.js      |    x     |         |            |
+| Svelte      |    x     |         |            |
+| Express.js  |          |    x    |            |	
+| Remix       |    x     |         |      x     |
+| Astro       |    x     |         |            |
 
 # Exercice007: 
-Framework |    PP    |   MP    |     GP     |
-Next.js   |    x     |    x    |     x      |
-Nuxt.js   |    x     |    x    |     x      |
-Nest.js   |          |    x    |     x      |      
-React	  |    x     |    x    |     x		|
-Angular	  |          |    x    |     x		|
-Vue.js	  |    x     |    x    |     x		|
-Svelte	  |    x     |    x    |     	    |
-Express.js|          |    x    |     x		|	
-Remix	  |    x     |    x    |     x		|
-Astro     |    x     |    x    |            |
+| Framework   |    PP    |   MP    |     GP     |
+|-------------|----------|---------|------------|
+| Next.js     |    x     |    x    |     x      |
+| Nuxt.js     |    x     |    x    |     x      |
+| Nest.js     |          |    x    |     x      |      
+| React       |    x     |    x    |     x      |
+| Angular     |          |    x    |     x      |
+| Vue.js      |    x     |    x    |     x      |
+| Svelte      |    x     |    x    |            |
+| Express.js  |          |    x    |     x      |	
+| Remix       |    x     |    x    |     x      |
+| Astro       |    x     |    x    |            |
 
 # Exercice008: 
