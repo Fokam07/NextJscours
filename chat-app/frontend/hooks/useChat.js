@@ -3,118 +3,81 @@
 
 import { useState, useEffect } from 'react';
 
-export function useChat() {
+export function useChat(conversationId) {
   const [messages, setMessages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Charger l'historique au montage
+  // Charger les messages de la conversation sélectionnée
   useEffect(() => {
-    const loadHistory = async () => {
+    if (!conversationId) {
+      setMessages([]);
+      return;
+    }
+
+    const fetchMessages = async () => {
+      setLoading(true);
       try {
-        const res = await fetch('/api/chat/history');
-        
-        if (!res.ok) {
-          throw new Error(`Erreur chargement historique : ${res.status}`);
-        }
+        const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+          credentials: 'include',
+        });
+
+        if (!res.ok) throw new Error('Erreur chargement messages');
 
         const data = await res.json();
-
-        // Protection : on filtre les éléments invalides dès le chargement
-        const validMessages = Array.isArray(data)
-          ? data.filter(msg => msg && typeof msg === 'object' && msg.id != null)
-          : [];
-
-        setMessages(validMessages);
+        setMessages(data || []);
       } catch (err) {
-        console.error('Erreur chargement historique :', err);
-        setError('Impossible de charger l’historique');
+        setError(err.message);
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadHistory();
-  }, []);
+    fetchMessages();
+  }, [conversationId]);
 
+  // Envoyer un message
   const sendMessage = async (content) => {
-    if (!content?.trim()) return;
+    if (!conversationId || !content?.trim()) return;
 
-    setIsLoading(true);
-    setError(null);
-
-    const tempId = Date.now();
+    // Optimistic UI
     const optimisticMsg = {
-      id: tempId,
-      role: 'user',
+      id: Date.now(),
       content: content.trim(),
+      role: 'user',
       createdAt: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content.trim() }),
+        body: JSON.stringify({ content: content.trim() }),
+        credentials: 'include',
       });
 
-      if (!res.ok) {
-        throw new Error(`Erreur serveur : ${res.status} ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error('Erreur envoi message');
 
-      const data = await res.json();
-      const { userMessage, aiMessage } = data;
+      const { userMessage, assistantMessage } = await res.json();
 
-      // Debug rapide (à retirer plus tard)
-      console.log('Réponse API reçue :', { userMessage, aiMessage });
-
-      // Protection : si un des deux est absent ou invalide → on ne plante pas
-      let newMessages = [...messages];
-
-      // On remplace le message temporaire seulement s'il existe vraiment
-      if (userMessage && typeof userMessage === 'object' && userMessage.id != null) {
-        newMessages = newMessages.map((m) =>
-          m.id === tempId ? userMessage : m
-        );
-      } else {
-        console.warn('userMessage invalide reçu du serveur', userMessage);
-        // On garde le message temporaire dans ce cas (ou on le supprime selon stratégie)
-        // Ici on le garde pour ne pas perdre le message utilisateur
-      }
-
-      // On ajoute la réponse IA seulement si elle est valide
-      if (aiMessage && typeof aiMessage === 'object' && aiMessage.id != null) {
-        newMessages = [...newMessages, aiMessage];
-      } else {
-        console.warn('aiMessage invalide reçu du serveur', aiMessage);
-        // Option : ajouter un message d'erreur visible
-        newMessages = [
-          ...newMessages,
-          {
-            id: Date.now() + 1,
-            role: 'system',
-            content: 'Erreur : impossible de recevoir la réponse de l’IA',
-            createdAt: new Date().toISOString(),
-          },
-        ];
-      }
-
-      setMessages(newMessages);
+      // Remplacer le message optimiste
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticMsg.id ? userMessage : m)).concat(assistantMessage)
+      );
     } catch (err) {
-      console.error('Erreur lors de l’envoi :', err);
-      setError('Impossible d’envoyer le message. Réessaie ?');
-
-      // En cas d’erreur → on retire le message temporaire
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-    } finally {
-      setIsLoading(false);
+      setError(err.message);
+      // Retirer le message optimiste en cas d'erreur
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
     }
   };
 
   return {
     messages,
-    isLoading,
-    error,
     sendMessage,
+    loading,
+    error,
   };
 }
