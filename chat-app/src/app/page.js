@@ -1,122 +1,82 @@
-// app/page.js   ou app/page.jsx
-'use client';  // Important : on passe en client component pour fetch + useEffect
+'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Chat from '@/frontend/components/Chat';  // adapte le chemin si besoin
+import { useState } from 'react';
+import { useAuth } from '@/frontend/hooks/useAuth';
+import { useConversations } from '@/frontend/hooks/useConversations';
+import LoginForm from '@/frontend/components/loginForm';
+import RegisterForm from '@/frontend/components/registerform';
+import Sidebar from '@/frontend/components/sideBar';
+import ChatArea from '@/frontend/components/chatArea';
 
-export default function HomePage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+export default function Home() {
+  const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
 
-  // Récupère les infos utilisateur au chargement de la page
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          method: 'GET',
-          credentials: 'include', // pour envoyer les cookies
-        });
+  const {
+    conversations,
+    loading: conversationsLoading,
+    createConversation,
+    deleteConversation,
+    refreshConversations,
+  } = useConversations(user?.id);
 
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user || null);
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Erreur récupération user:', err);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, []);
-
-  // Optionnel : si pas connecté → on peut rediriger vers /login
-  // Décommente si tu veux forcer la connexion
-  /*
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [loading, user, router]);
-  */
-
-  const handleLogout = async () => {
-    try {
-      const res = await fetch('/api/auth/logout', {
-        method: 'POST', // ou GET selon ton backend
-        credentials: 'include',
-      });
-
-      if (res.ok) {
-        setUser(null);
-        router.push('/login');
-        router.refresh();
-      }
-    } catch (err) {
-      console.error('Erreur logout:', err);
-    }
-  };
-
-  if (loading) {
+  // Loading state
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Chargement...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  // Formulaires de connexion/inscription
+  if (!user) {
+    return showRegister ? (
+      <RegisterForm
+        onRegister={signUp}
+        onSwitchToLogin={() => setShowRegister(false)}
+      />
+    ) : (
+      <LoginForm
+        onLogin={signIn}
+        onSwitchToRegister={() => setShowRegister(true)}
+      />
+    );
+  }
+
+  // Interface principale
+  const handleNewConversation = async () => {
+    const newConv = await createConversation();
+    if (newConv) {
+      setCurrentConversationId(newConv.id);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId) => {
+    await deleteConversation(conversationId);
+    if (currentConversationId === conversationId) {
+      setCurrentConversationId(null);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setCurrentConversationId(null);
+  };
+
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold">
-          Chat simple avec IA
-        </h1>
-
-        <div className="flex items-center gap-4">
-          {user ? (
-            <>
-              <span className="text-gray-700 font-medium">
-                {user.name || user.email?.split('@')[0] || 'Utilisateur'}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-sm text-red-600 hover:underline"
-              >
-                Déconnexion
-              </button>
-            </>
-          ) : (
-            <a
-              href="/login"
-              className="text-blue-600 hover:underline text-sm font-medium"
-            >
-              Se connecter / S'inscrire
-            </a>
-          )}
-        </div>
-      </header>
-
-      <div className="flex-1">
-        {user ? (
-          <Chat />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-gray-600">
-            <p className="text-lg mb-4">Connectez-vous pour accéder au chat</p>
-            <a
-              href="/login"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Aller à la connexion
-            </a>
-          </div>
-        )}
-      </div>
-    </main>
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onSelectConversation={setCurrentConversationId}
+        onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
+        onSignOut={handleSignOut}
+        user={user}
+      />
+      <ChatArea conversationId={currentConversationId} userId={user.id} />
+    </div>
   );
 }
