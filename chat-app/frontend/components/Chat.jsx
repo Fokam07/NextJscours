@@ -7,31 +7,28 @@ import { Trash2 } from 'lucide-react';
 
 export default function Chat() {
     const { messages, sendMessage, isLoading, error } = useChat();
-
     const [inputValue, setInputValue] = useState('');
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if(!inputValue.trim()) return;
+        if (!inputValue.trim()) return;
         sendMessage(inputValue.trim());
         setInputValue('');
     }; 
 
     const handleClearChat = async () => {
         if (!confirm("Vraiment effacer toute la conversation ?")) return;
-
         try {
             const res = await fetch('/api/chat', { method: 'DELETE' });
             if (!res.ok) throw new Error('Erreur suppression');
-            
-            setMessages([]); // ou appelle fetchMessages() si tu préfères recharger
+            // setMessages([]); // Uncomment if necessary to reset messages     
         } catch (err) {
             console.error(err);
             alert("Impossible d'effacer la conversation");
         }
-        };
+    };
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,7 +45,7 @@ export default function Chat() {
                 <button
                     onClick={handleClearChat}
                     disabled={messages.length === 0 || isLoading}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-md disabled:opacity-40 disabled:cursor-not-allowed clear-chat-button"
                 >
                     <Trash2 size={16} />
                     Effacer
@@ -61,31 +58,27 @@ export default function Chat() {
                         Commence à discuter…
                     </div>
                 )}
-
-                {messages.map((msg) => (
+                {messages.filter(msg => msg && typeof msg === 'object' && msg.id != null).map((msg) => (
                     <Message key={msg.id} message={msg} />
                 ))}
-
                 {isLoading && (
-                    <div className="flex justify-start mb-4">
+                    <div className="loading-indicator">
                         <div className="bg-gray-200 text-gray-600 px-5 py-3 rounded-2xl rounded-bl-none flex items-center gap-1">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                             <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                         </div>
                     </div>
                 )}
-
                 {error && (
                     <div className="text-red-600 text-center py-2">{error}</div>
                 )}
-
                 <div ref={messagesEndRef} />
             </div>
 
             {/* Zone saisie */}
-            <div className="border-t bg-white p-4">
-                <form onSubmit={handleSubmit} className="flex gap-3 max-w-4xl mx-auto">
+            <div className="border-t bg-white p-4 input-zone">
+                <form onSubmit={handleSubmit} className="flex gap-3">
                     <input
                         ref={inputRef}
                         type="text"
@@ -107,6 +100,7 @@ export default function Chat() {
                             hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500
                             disabled:bg-gray-400 disabled:cursor-not-allowed
                             transition-colors
+                            send-button
                         "
                     >
                         Envoyer

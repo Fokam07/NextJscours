@@ -8,22 +8,27 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Charger l'historique au premier rendu
+  // Charger l'historique au montage
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const res = await fetch('/api/chat/history', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        if (!res.ok) throw new Error('Impossible de charger l historique');
+        const res = await fetch('/api/chat/history');
+        
+        if (!res.ok) {
+          throw new Error(`Erreur chargement historique : ${res.status}`);
+        }
 
         const data = await res.json();
-        setMessages(data || []);
+
+        // Protection : on filtre les éléments invalides dès le chargement
+        const validMessages = Array.isArray(data)
+          ? data.filter(msg => msg && typeof msg === 'object' && msg.id != null)
+          : [];
+
+        setMessages(validMessages);
       } catch (err) {
-        console.error(err);
-        setError('Erreur lors du chargement des messages');
+        console.error('Erreur chargement historique :', err);
+        setError('Impossible de charger l’historique');
       }
     };
 
@@ -36,7 +41,6 @@ export function useChat() {
     setIsLoading(true);
     setError(null);
 
-    // Message utilisateur affiché immédiatement (optimistic update)
     const tempId = Date.now();
     const optimisticMsg = {
       id: tempId,
@@ -55,21 +59,52 @@ export function useChat() {
       });
 
       if (!res.ok) {
-        throw new Error(`Erreur ${res.status}`);
+        throw new Error(`Erreur serveur : ${res.status} ${res.statusText}`);
       }
 
-      const { userMessage, aiMessage } = await res.json();
+      const data = await res.json();
+      const { userMessage, aiMessage } = data;
 
-      // Remplacer le message temporaire par la vraie version serveur + ajouter la réponse IA
-      setMessages((prev) =>
-        prev
-          .map((m) => (m.id === tempId ? userMessage : m))
-          .concat(aiMessage)
-      );
+      // Debug rapide (à retirer plus tard)
+      console.log('Réponse API reçue :', { userMessage, aiMessage });
+
+      // Protection : si un des deux est absent ou invalide → on ne plante pas
+      let newMessages = [...messages];
+
+      // On remplace le message temporaire seulement s'il existe vraiment
+      if (userMessage && typeof userMessage === 'object' && userMessage.id != null) {
+        newMessages = newMessages.map((m) =>
+          m.id === tempId ? userMessage : m
+        );
+      } else {
+        console.warn('userMessage invalide reçu du serveur', userMessage);
+        // On garde le message temporaire dans ce cas (ou on le supprime selon stratégie)
+        // Ici on le garde pour ne pas perdre le message utilisateur
+      }
+
+      // On ajoute la réponse IA seulement si elle est valide
+      if (aiMessage && typeof aiMessage === 'object' && aiMessage.id != null) {
+        newMessages = [...newMessages, aiMessage];
+      } else {
+        console.warn('aiMessage invalide reçu du serveur', aiMessage);
+        // Option : ajouter un message d'erreur visible
+        newMessages = [
+          ...newMessages,
+          {
+            id: Date.now() + 1,
+            role: 'system',
+            content: 'Erreur : impossible de recevoir la réponse de l’IA',
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      }
+
+      setMessages(newMessages);
     } catch (err) {
-      console.error('Erreur envoi message:', err);
+      console.error('Erreur lors de l’envoi :', err);
       setError('Impossible d’envoyer le message. Réessaie ?');
-      // Option : retirer le message optimiste en cas d’échec
+
+      // En cas d’erreur → on retire le message temporaire
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setIsLoading(false);

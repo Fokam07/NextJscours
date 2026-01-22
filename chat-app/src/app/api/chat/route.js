@@ -4,6 +4,7 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
+    
 });
 
 export async function POST(request) {
@@ -21,7 +22,7 @@ export async function POST(request) {
     // Appel à l'API Groq (notez le "model" au singulier)
     const completion = await groq.chat.completions.create({
       messages: [{ role: "user", content: message }],
-      model: "llama3-8b-8192",
+      model: "groq/compound-mini",
     });
 
     // Sauvegarde de la réponse de l'IA
