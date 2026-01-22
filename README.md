@@ -84,3 +84,29 @@
 | traitement des fichiers |  X      |       |
 | validation de formulaire |        |   X   |
 | temps reel(Web sockets) |  X      |   X   |
+
+## Tableau 5 - performance de l'execution
+
+| critere   |  Node js  | Navigateur |
+|-----------|-----------|------------|
+| Event Loop |  X   |   X   |
+| Multithreading |  X   | tres limiter |
+| longs calculs |    X   |   bloque le rendu pas tres optimal |
+|interaction utilisateur |      |   X   |
+
+## Question de synthèse
+    JavaScript se comporte différemment car l’environnement détermine les APIs et les restrictions.
+Dans le navigateur, JS est sandboxé, avec accès au DOM, aux événements et stockage limité, pour la sécurité de l’utilisateur.
+Dans Node.js, JS s’exécute côté serveur, avec accès complet au système de fichiers, réseau et processus.
+La boucle d’événements reste la même, mais les modules, objets globaux et permissions diffèrent.
+Ainsi, le même langage a des capacités très différentes selon l’environnement.
+
+## Conclusion 
+
+Exactement ! Cette phrase résume bien la situation :
+
+*   Node.js : JS côté serveur → accès complet au système (fichiers, réseau, processus), responsable de la sécurité, performance et gestion serveur.
+*   Navigateur : JS côté client → accès limité pour protéger l’utilisateur, manipule le DOM, événements et stockage local.
+Node.js et le navigateur utilisent JavaScript, mais n’offrent pas les mêmes capacités ni les mêmes responsabilités.
+
+
