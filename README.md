@@ -78,7 +78,7 @@
 ## Tableau 4 - Cas d'usage
 
 | Cas d'usage |  Node js | Navigateur    |
-|---------``````````|--------------|-----|
+|--------------------|--------------|-----|
 |API backend         |   X       |          |
 | interface utilisateur | X         | X     |
 | traitement des fichiers |  X      |       |
