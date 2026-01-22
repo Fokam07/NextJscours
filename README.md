@@ -2,15 +2,30 @@
 
 # Exercice 005: 
 
-Next.js : SSG, ISR, SSR
-Nuxt.js : SSG, SSR
-Nest.js : SSR
-SveltekKit : SSG, SSR
-Remix : SSR, SSG
-Gatsby : SSG
-Astro : SSG
-Angular: SSR
-Vue.js : SSR
-Qwik : SSR, SSG
+| Framework           | SSG | ISR | SSR |
+|---------------------|-----|-----|-----|
+| Next.js             | ✔️  |  ✔️  | ✔️ |
+| Nuxt.js             | ✔️  |     | ✔️  |
+| NestJS              |     |     | ✔️  |
+| SvelteKit           | ✔️  |     | ✔️  |
+| Remix               | ✔️  |     | ✔️  |
+| Gatsby              | ✔️  |     |     |
+| Astro               | ✔️  |     |     |
+| Angular (Universal) |      |     | ✔️  |
+| Vue.js (Vite)       |     |     | ✔️  |
+| Qwik                | ✔️  |     | ✔️  |
 
-# Exercie008:
+# Exercie006:
+Framework | Frontend | Backend | Full-Stack |
+Next.js   |    x     |         |      x     |
+Nuxt.js   |    x     |         |      x     |
+Nest.js   |          |    x    |            |      
+React	  |    x     |         |     		|
+Angular	  |    x     |         |     		|
+Vue.js	  |    x     |         |     		|
+Svelte	  |    x     |         |     	    |
+Express.js|          |     x   |     		|	
+Remix	  |    x     |         |     x		|
+Astro     |    x     |         |            |
+
+# Exercice007: 
