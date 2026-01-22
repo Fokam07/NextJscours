@@ -43,4 +43,34 @@
 | Remix       |    x     |    x    |     x      |
 | Astro       |    x     |    x    |            |
 
-# Exercice008: 
+# Exercice009: 
+
+## Tableau 1 - Environnement d'execution 
+| Critere                    | Node js  | Navigateur    |
+|----------------------------|----------|---------------|   
+| Execute javascriipt        |     X    |       X       |   
+| Cote Serveur               |     X    |               |   
+| Cote client                |          |       x       |   
+| Acces au Dom               |          |       X       |   
+| Acces au systeme de fichier|     X    |               |   
+| Acces au reseau bas niveau |     X    |       X       |  
+
+## Tableau 2 - APIs disponibles
+
+| API\Fonctionnalite  | Node js | Navigateur |
+|---------------------|---------|------------|
+| DOM                 |         |      X     |
+| fs(file System)     |    X    |            |
+| http                |    X    |            |
+| fetch               |    X    |      X     |
+| localstorage        |         |      X     |
+| process             |    X    |            |
+
+## Tableau 3 - Securite et contraintes
+
+| Criteres           | Node js       | Navigateur   |
+|--------------------|---------------|--------------|
+| Acces libre disque |     X         |              |
+| Sanbox de securite |               |       X      |
+| Acces Materiel     | acces partiel | Acces tres limiter|
+| Isolation du code  |               |       X      |
