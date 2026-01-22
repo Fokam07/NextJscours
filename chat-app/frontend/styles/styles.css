@@ -1,0 +1,87 @@
+/* styles/styles.css */
+
+body {
+    background-color: #f3f4f6; /* Couleur de fond gris clair */
+}
+
+/* Conteneur principal de la page */
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Boîte de formulaire */
+.auth-box {
+    background-color: white;
+    padding: 32px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px; /* Largeur maximum */
+}
+
+/* Titre */
+.auth-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+/* Erreur */
+.auth-error {
+    color: #e53e3e; /* Couleur rouge */
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+/* Label */
+.auth-label {
+    display: block;
+    font-size: 0.875em;
+    font-weight: 500;
+    margin-bottom: 8px; /* Espace entre le label et l'input */
+}
+
+/* Input */
+.auth-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db; /* Bordure gris */
+    border-radius: 8px; /* Coins arrondis */
+}
+
+/* Bouton */
+.auth-button {
+    width: 100%;
+    background-color: #2563eb; /* Bleu */
+    color: white;
+    padding: 12px;
+    border-radius: 8px; /* Coins arrondis */
+    cursor: pointer; /* Indicateur de clic */
+    transition: background-color 0.2s; /* Transition douce */
+
+}
+
+.auth-button:hover {
+    background-color: #1d4ed8; /* Couleur bleue plus foncée au survol */
+}
+
+.auth-button:disabled {
+    background-color: #cbd5e1; /* Gris clair */
+    cursor: not-allowed; /* Indicateur d'interdiction */
+}
+
+/* Lien d'inscription / connexion */
+.auth-toggle {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.auth-toggle-button {
+    color: #2563eb; /* Couleur du lien */
+    cursor: pointer;
+    text-decoration: underline; /* Soulignement */
+}
