@@ -18,16 +18,16 @@
 # Exercie006:
 | Framework   | Frontend | Backend | Full-Stack |
 |-------------|----------|---------|------------|
-| Next.js     |    x     |         |      x     |
-| Nuxt.js     |    x     |         |      x     |
+| Next.js     |    x     |        |      x     |
+| Nuxt.js     |    x     |        |      x     |
 | Nest.js     |          |    x    |            |      
-| React       |    x     |         |            |
-| Angular     |    x     |         |            |
-| Vue.js      |    x     |         |            |
-| Svelte      |    x     |         |            |
-| Express.js  |          |    x    |            |	
-| Remix       |    x     |         |      x     |
-| Astro       |    x     |         |            |
+| React       |    x     |        |           |
+| Angular     |    x     |        |           |
+| Vue.js      |    x     |        |           |
+| Svelte      |    x     |        |           |
+| Express.js  |         |    x    |           |	
+| Remix       |    x     |        |      x     |
+| Astro       |    x     |        |           |
 
 # Exercice007: 
 | Framework   |    PP    |   MP    |     GP     |
