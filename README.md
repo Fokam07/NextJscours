@@ -74,3 +74,13 @@
 | Sanbox de securite |               |       X      |
 | Acces Materiel     | acces partiel | Acces tres limiter|
 | Isolation du code  |               |       X      |
+
+## Tableau 4 - Cas d'usage
+
+| Cas d'usage |  Node js | Navigateur    |
+|---------``````````|--------------|-----|
+|API backend         |   X       |          |
+| interface utilisateur | X         | X     |
+| traitement des fichiers |  X      |       |
+| validation de formulaire |        |   X   |
+| temps reel(Web sockets) |  X      |   X   |
