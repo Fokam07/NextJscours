@@ -1,0 +1,83 @@
+/* styles/styles.css */
+
+body {
+    background-color: #e5ddd5; /* Couleur de fond similaire à WhatsApp */
+}
+
+/* Conteneur principal du chat */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Prend toute la hauteur */
+    max-width: 600px; /* Largeur maximum du chat */
+    margin: auto; /* Centré */
+}
+
+/* Titre du chat */
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: white;
+    border-bottom: 1px solid #ccc; /* Bordure inférieure */
+}
+
+/* Zone des messages */
+.messages {
+    flex: 1;
+    overflow-y: auto; /* Permet le défilement */
+    padding: 15px;
+    background-color: #f0f0f0; /* Couleur de fond des messages */
+}
+
+/* Message utilisateur */
+.message-user {
+    background-color: #dcf8c6; /* Vert clair pour les messages utilisateur */
+    color: #000; /* Texte sombre */
+    align-self: flex-end; /* Alignement à droite */
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    margin-bottom: 10px; /* Espacement */
+}
+
+/* Message assistant / bot */
+.message-assistant {
+    background-color: #f1f0f0; /* Couleur grise pour les messages du bot */
+    color: #000;
+    align-self: flex-start; /* Alignement à gauche */
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    margin-bottom: 10px; /* Espacement */
+}
+
+/* Zone d'entrée */
+.input-zone {
+    display: flex;
+    border-top: 1px solid #ccc; /* Bordure supérieure */
+    background-color: white; /* Fond blanc */
+    padding: 10px;
+}
+
+/* Champ de saisie */
+.input-message {
+    flex: 1;
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    border: 1px solid #bbb; /* Bordure */
+}
+
+/* Bouton d'envoi */
+.send-button {
+    background-color: #25D366; /* Couleur verte de WhatsApp */
+    color: white;
+    border: none;
+    border-radius: 20px; /* Bords arrondis */
+    margin-left: 10px; /* Écart entre le champ et le bouton */
+    padding: 10px 15px;
+    cursor: pointer; /* Curseur de main au survol */
+}
+
+.send-button:hover {
+    background-color: #1DBE5E; /* Couleur plus foncée au survol */
+}
