@@ -1,0 +1,14 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  role      String   // "user" ou "assistant"
+  content   String
+  createdAt DateTime @default(now())
+}
