@@ -1,76 +1,83 @@
-/* Assurez-vous d'intégrer ce CSS dans votre fichier global CSS ou dans un fichier spécifique si nécessaire */
+/* styles/styles.css */
 
-/* Styles généraux */
 body {
     background-color: #e5ddd5; /* Couleur de fond similaire à WhatsApp */
 }
 
-/* Zone de chat */
+/* Conteneur principal du chat */
 .chat-container {
-    max-width: 600px; /* Largeur maximale du chat */
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Prend toute la hauteur */
+    max-width: 600px; /* Largeur maximum du chat */
+    margin: auto; /* Centré */
 }
 
-/* Message de l'utilisateur */
+/* Titre du chat */
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: white;
+    border-bottom: 1px solid #ccc; /* Bordure inférieure */
+}
+
+/* Zone des messages */
+.messages {
+    flex: 1;
+    overflow-y: auto; /* Permet le défilement */
+    padding: 15px;
+    background-color: #f0f0f0; /* Couleur de fond des messages */
+}
+
+/* Message utilisateur */
 .message-user {
     background-color: #dcf8c6; /* Vert clair pour les messages utilisateur */
     color: #000; /* Texte sombre */
     align-self: flex-end; /* Alignement à droite */
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    margin-bottom: 10px; /* Espacement */
 }
 
-/* Message Assistant / Bot */
+/* Message assistant / bot */
 .message-assistant {
     background-color: #f1f0f0; /* Couleur grise pour les messages du bot */
     color: #000;
     align-self: flex-start; /* Alignement à gauche */
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    margin-bottom: 10px; /* Espacement */
 }
 
 /* Zone d'entrée */
 .input-zone {
-    background-color: #fff; /* Blanc pour la zone d'entrée */
+    display: flex;
     border-top: 1px solid #ccc; /* Bordure supérieure */
+    background-color: white; /* Fond blanc */
+    padding: 10px;
+}
+
+/* Champ de saisie */
+.input-message {
+    flex: 1;
+    padding: 10px;
+    border-radius: 20px; /* Bords arrondis */
+    border: 1px solid #bbb; /* Bordure */
 }
 
 /* Bouton d'envoi */
 .send-button {
     background-color: #25D366; /* Couleur verte de WhatsApp */
-    color: white; /* Texte blanc */
-    transition: background-color 0.3s; /* Transition */
+    color: white;
+    border: none;
+    border-radius: 20px; /* Bords arrondis */
+    margin-left: 10px; /* Écart entre le champ et le bouton */
+    padding: 10px 15px;
+    cursor: pointer; /* Curseur de main au survol */
 }
 
 .send-button:hover {
-    background-color: #1DBE5E; /* Couleur au survol */
-}
-
-/* Style pour le bouton d'effacement */
-.clear-chat-button {
-    color: #C62828; /* Rouge pour les boutons de suppression */
-    transition: background-color 0.3s;
-}
-
-.clear-chat-button:hover {
-    background-color: rgba(198, 40, 40, 0.1); /* Survol léger */
-}
-
-/* Indicateur de chargement */
-.loading-indicator {
-    display: flex;
-    justify-content: start;
-    margin-bottom: 1rem;
-}
-
-.bounce {
-    width: 8px;
-    height: 8px;
-    background-color: #00A884; /* Couleur verte */
-    border-radius: 50%;
-    animation: bounce 0.6s infinite alternate;
-}
-
-@keyframes bounce {
-    0% {
-        transform: translateY(0);
-    }
-    100% {
-        transform: translateY(-10px);
-    }
+    background-color: #1DBE5E; /* Couleur plus foncée au survol */
 }
