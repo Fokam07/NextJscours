@@ -1,4 +1,3 @@
-// app/page.js
 import Chat from '@/frontend/components/Chat';
 
 export default function Home() {
