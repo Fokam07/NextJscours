@@ -29,3 +29,16 @@ Remix	  |    x     |         |     x		|
 Astro     |    x     |         |            |
 
 # Exercice007: 
+Framework |    PP    |   MP    |     GP     |
+Next.js   |    x     |    x    |     x      |
+Nuxt.js   |    x     |    x    |     x      |
+Nest.js   |          |    x    |     x      |      
+React	  |    x     |    x    |     x		|
+Angular	  |          |    x    |     x		|
+Vue.js	  |    x     |    x    |     x		|
+Svelte	  |    x     |    x    |     	    |
+Express.js|          |    x    |     x		|	
+Remix	  |    x     |    x    |     x		|
+Astro     |    x     |    x    |            |
+
+# Exercice008: 
