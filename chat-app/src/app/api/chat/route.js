@@ -2,64 +2,60 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
 import Groq from "groq-sdk";
 
-const groq = Groq({
+const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
-}); 
+});
 
-export async function Post(request) {
-    try {
-        const { message } = await request.json(); // Corrected method to lowercase 'json'
+export async function POST(request) {
+  try {
+    const { message } = await request.json();
 
-        if (!message?.trim()) {
-            return NextResponse.json({ error: "Message requis" }, { status: 400 });
-        }  // Moved the return statement above
+    // Sauvegarde du message utilisateur
+    const userMessage = await prisma.message.create({
+      data: {
+        content: message,
+        role: 'user',
+      },
+    });
 
-        const userMessage = await prisma.message.create({
-            data: {
-                role: 'user',
-                content: message.trim(), // Use 'content' (fix case sensitivity)
-            }
-        });
+    // Appel à l'API Groq (notez le "model" au singulier)
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: message }],
+      model: "llama3-8b-8192",
+    });
 
-        const history = await prisma.message.findMany({
-            orderBy: { createdAt: 'asc' }, // Fixed typo 'oderBy'
-            take: 20,
-        }); 
+    // Sauvegarde de la réponse de l'IA
+    const aiMessage = await prisma.message.create({
+      data: {
+        content: completion.choices[0]?.message?.content || "",
+        role: 'assistant',
+      },
+    });
 
-        const messagesForGroq = history.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-        }));
+    return NextResponse.json({ message: aiMessage });
+  } catch (error) {
+    console.error('Erreur lors du traitement du message:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la génération de la réponse' },
+      { status: 500 }
+    );
+  }
+}
 
-        messagesForGroq.push({
-            role: 'user',
-            content: message.trim(),
-        });
-
-        const completion = await groq.chat.completions.create({
-            messages: messagesForGroq,
-            models: 'llama-3.3-70b-versatile',
-            temperature: 0.7,
-            max_tokens: 1024,
-            stream: true, // Fixed case sensitivity for 'stream'
-        }); 
-
-        const aiReply = completion.choices[0]?.message?.content || "Désolé, je n'ai pas de réponse à cela."; // Fixed 'choises' typo
-
-        const aiMessage = await prisma.message.create({
-            data: {
-                role: 'assistant',
-                content: aiReply,
-            }
-        });
-
-        return NextResponse.json({
-            userMessage, 
-            aiMessage,
-        }); 
-        
-    } catch (error) {
-        console.error("Erreur lors du traitement du message:", error);
-        return NextResponse.json({ error: "Erreur interne du serveur" }, { status: 500 });
-    }
+// Route GET pour récupérer l'historique
+export async function GET() {
+  try {
+    const messages = await prisma.message.findMany({
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+    return NextResponse.json({ messages });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des messages:', error);
+    return NextResponse.json(
+      { error: 'Erreur lors de la récupération des messages' },
+      { status: 500 }
+    );
+  }
 }

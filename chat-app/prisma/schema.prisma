@@ -4,11 +4,12 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
-  role      String   // "user" ou "assistant"
+  id        String   @id @default(cuid())
   content   String
+  role      String
   createdAt DateTime @default(now())
 }
