@@ -1,6 +1,6 @@
 # NextJscours
 
-# Exercice 1: 
+# Exercice 005: 
 
 Next.js : SSG, ISR, SSR
 Nuxt.js : SSG, SSR
@@ -12,3 +12,5 @@ Astro : SSG
 Angular: SSR
 Vue.js : SSR
 Qwik : SSR, SSG
+
+# Exercie008:
