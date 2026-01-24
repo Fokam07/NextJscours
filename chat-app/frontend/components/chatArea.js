@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { Trash2 } from 'lucide-react';
 
 export default function ChatArea({ conversationId, userId }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Charger les messages de la conversation
   useEffect(() => {
@@ -13,6 +16,7 @@ export default function ChatArea({ conversationId, userId }) {
 
     const fetchMessages = async () => {
       setLoadingMessages(true);
+      setError(null);
       try {
         const response = await fetch(`/api/conversations/${conversationId}`, {
           headers: { 'x-user-id': userId },
@@ -21,9 +25,12 @@ export default function ChatArea({ conversationId, userId }) {
         if (response.ok) {
           const data = await response.json();
           setMessages(data.messages || []);
+        } else {
+          throw new Error('Erreur lors du chargement des messages');
         }
       } catch (error) {
         console.error('Erreur chargement messages:', error);
+        setError('Impossible de charger les messages');
       } finally {
         setLoadingMessages(false);
       }
@@ -35,7 +42,14 @@ export default function ChatArea({ conversationId, userId }) {
   // Auto-scroll vers le bas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, loading]);
+
+  // Focus automatique sur l'input
+  useEffect(() => {
+    if (conversationId) {
+      inputRef.current?.focus();
+    }
+  }, [conversationId]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -44,6 +58,7 @@ export default function ChatArea({ conversationId, userId }) {
     const userMessage = inputValue.trim();
     setInputValue('');
     setLoading(true);
+    setError(null);
 
     // Ajouter immédiatement le message utilisateur
     const tempUserMsg = {
@@ -79,21 +94,34 @@ export default function ChatArea({ conversationId, userId }) {
       ]);
     } catch (error) {
       console.error('Erreur:', error);
-      // Ajouter un message d'erreur
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          content: 'Désolé, une erreur s\'est produite. Veuillez réessayer.',
-          role: 'assistant',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      setError('Désolé, une erreur s\'est produite. Veuillez réessayer.');
+      // Retirer le message temporaire en cas d'erreur
+      setMessages(prev => prev.filter(m => m.id !== tempUserMsg.id));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleClearChat = async () => {
+    if (!confirm('Vraiment effacer toute la conversation ?')) return;
+
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': userId },
+      });
+      
+      if (!res.ok) throw new Error('Erreur suppression');
+      
+      setMessages([]);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Impossible d\'effacer la conversation');
+    }
+  };
+
+  // État vide - pas de conversation sélectionnée
   if (!conversationId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
@@ -112,13 +140,26 @@ export default function ChatArea({ conversationId, userId }) {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50">
+      {/* Header avec bouton clear */}
+      <div className="border-b bg-white px-6 py-4 flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-gray-800">Conversation</h2>
+        <button
+          onClick={handleClearChat}
+          disabled={messages.length === 0 || loading}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Trash2 size={16} />
+          Effacer
+        </button>
+      </div>
+
       {/* Zone des messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {loadingMessages ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-400">
               <p className="text-lg">Commencez la conversation</p>
@@ -166,6 +207,14 @@ export default function ChatArea({ conversationId, userId }) {
               </div>
             )}
 
+            {error && (
+              <div className="flex justify-center">
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-center">
+                  {error}
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -176,11 +225,12 @@ export default function ChatArea({ conversationId, userId }) {
         <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
           <div className="flex gap-3">
             <input
+              ref={inputRef}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Écrivez votre message..."
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               disabled={loading}
             />
             <button

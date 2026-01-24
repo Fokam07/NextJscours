@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import { conversationService } from './conversationService.js';
+import { conversationService } from '@/backend/services/conversation.service';
 
 export const messageService = {
   /**

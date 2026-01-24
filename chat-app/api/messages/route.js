@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { conversationService } from '@/backend/services/conversationService';
+import { conversationService } from '@/backend/services/conversation.service.js';
 
 /**
  * GET /api/conversations/[id]
