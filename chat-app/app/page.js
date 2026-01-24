@@ -15,7 +15,7 @@ export default function Home() {
 
   const {
     conversations,
-    loading: conversationsLoading,
+    loading,
     createConversation,
     deleteConversation,
     refreshConversations,
@@ -76,7 +76,7 @@ export default function Home() {
         onSignOut={handleSignOut}
         user={user}
       />
-      <ChatArea conversationId={currentConversationId} userId={user.id} />
+      <ChatArea conversationId={currentConversationId} userId={user?.id} />
     </div>
   );
 }

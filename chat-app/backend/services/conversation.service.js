@@ -5,6 +5,7 @@ export const conversationService = {
    * Créer une nouvelle conversation
    */
   async createConversation(userId, title = 'Nouvelle conversation') {
+    
     return await prisma.conversation.create({
       data: {
         title,

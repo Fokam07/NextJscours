@@ -1,4 +1,3 @@
-import bcrypt from 'bcrypt';
 import prisma from '../lib/prisma.js';
 
 const SALT_ROUNDS = 10;
@@ -7,14 +6,13 @@ export const userService = {
   /**
    * Créer un nouvel utilisateur
    */
-  async createUser({ email, username, password }) {
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  async createUser({ email, username, id }) {
     
     return await prisma.user.create({
       data: {
         email,
         username,
-        password: hashedPassword,
+        id
       },
       select: {
         id: true,
@@ -50,32 +48,41 @@ export const userService = {
   },
 
   /**
-   * Vérifier le mot de passe
+   *  mettre a jour un utilisateur
    */
-  async verifyPassword(plainPassword, hashedPassword) {
-    return await bcrypt.compare(plainPassword, hashedPassword);
-  },
-
-  /**
-   * Authentifier un utilisateur
-   */
-  async authenticate(email, password) {
-    const user = await this.findByEmail(email);
-    
+  async updateUser(id, { email, username }) {
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
     if (!user) {
       throw new Error('Utilisateur non trouvé');
     }
+    return await prisma.user.update({
+      where: { id },
+      data: {
+        email,
+        username,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        createdAt: true,
+      },
+    });
+  },
 
-    const isValid = await this.verifyPassword(password, user.password);
-    
-    if (!isValid) {
-      throw new Error('Mot de passe incorrect');
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-    };
+  /**  * Supprimer un utilisateur
+   */
+  async deleteUser(id) {
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
+    } 
+    return await prisma.user.delete({
+      where: { id },
+    });
   },
 };

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
 
 export function useAuth() {
   const [user, setUser] = useState(null);

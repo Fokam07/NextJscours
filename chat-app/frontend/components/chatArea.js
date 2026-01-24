@@ -1,36 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { useChat } from '../hooks/useChat';
 
 export default function ChatArea({ conversationId, userId }) {
-  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Charger les messages de la conversation
-  useEffect(() => {
-    if (!conversationId || !userId) return;
-
-    const fetchMessages = async () => {
-      setLoadingMessages(true);
-      try {
-        const response = await fetch(`/api/conversations/${conversationId}`, {
-          headers: { 'x-user-id': userId },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setMessages(data.messages || []);
-        }
-      } catch (error) {
-        console.error('Erreur chargement messages:', error);
-      } finally {
-        setLoadingMessages(false);
-      }
-    };
-
-    fetchMessages();
-  }, [conversationId, userId]);
+  const { sendMessage, error, messages, loading } = useChat(conversationId, userId);
 
   // Auto-scroll vers le bas
   useEffect(() => {
@@ -43,55 +18,7 @@ export default function ChatArea({ conversationId, userId }) {
 
     const userMessage = inputValue.trim();
     setInputValue('');
-    setLoading(true);
-
-    // Ajouter immédiatement le message utilisateur
-    const tempUserMsg = {
-      id: Date.now(),
-      content: userMessage,
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempUserMsg]);
-
-    try {
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId,
-        },
-        body: JSON.stringify({
-          conversationId,
-          content: userMessage,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Erreur envoi message');
-
-      const { userMessage: savedUserMsg, assistantMessage } = await response.json();
-
-      // Remplacer le message temporaire et ajouter la réponse
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== tempUserMsg.id),
-        savedUserMsg,
-        assistantMessage,
-      ]);
-    } catch (error) {
-      console.error('Erreur:', error);
-      // Ajouter un message d'erreur
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          content: 'Désolé, une erreur s\'est produite. Veuillez réessayer.',
-          role: 'assistant',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    await sendMessage(userMessage);
   };
 
   if (!conversationId) {
@@ -114,7 +41,7 @@ export default function ChatArea({ conversationId, userId }) {
     <div className="flex-1 flex flex-col bg-gray-50">
       {/* Zone des messages */}
       <div className="flex-1 overflow-y-auto p-4">
-        {loadingMessages ? (
+        {loading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
@@ -154,7 +81,7 @@ export default function ChatArea({ conversationId, userId }) {
               </div>
             ))}
 
-            {loading && (
+            {false && (
               <div className="flex justify-start">
                 <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
                   <div className="flex space-x-2">
