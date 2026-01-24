@@ -5,25 +5,16 @@ export const conversationService = {
    * Créer une nouvelle conversation
    */
   async createConversation(userId, title = 'Nouvelle conversation') {
-    try {
-      console.log('🔨 Creating conversation for userId:', userId, 'title:', title);
-      
-      const conversation = await prisma.conversation.create({
-        data: {
-          title,
-          userId: String(userId), // S'assurer que c'est un string
-        },
-        include: {
-          messages: true,
-        },
-      });
-      
-      console.log('✅ Conversation created:', conversation.id);
-      return conversation;
-    } catch (error) {
-      console.error('❌ Error creating conversation:', error);
-      throw error;
-    }
+    
+    return await prisma.conversation.create({
+      data: {
+        title,
+        userId,
+      },
+      include: {
+        messages: true,
+      },
+    });
   },
 
   /**

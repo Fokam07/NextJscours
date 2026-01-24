@@ -1,24 +1,19 @@
 import { useState } from 'react';
-import '../styles/login.css';
+import { useAuth } from '../hooks/useAuth';
 
 export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const {error} = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
-    try {
-      const { error } = await onLogin(email, password);
-      if (error) throw error;
-    } catch (err) {
-      setError(err.message || 'Erreur de connexion');
-    } finally {
-      setLoading(false);
+    const success = await onLogin(email, password);
+    if (!success) {
+      console.log('Échec de la connexion');
     }
   };
 

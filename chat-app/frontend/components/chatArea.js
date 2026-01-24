@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trash2 } from 'lucide-react';
 
 export default function ChatArea({ conversationId, userId }) {
-  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -16,7 +13,6 @@ export default function ChatArea({ conversationId, userId }) {
 
     const fetchMessages = async () => {
       setLoadingMessages(true);
-      setError(null);
       try {
         const response = await fetch(`/api/conversations/${conversationId}`, {
           headers: { 'x-user-id': userId },
@@ -25,12 +21,9 @@ export default function ChatArea({ conversationId, userId }) {
         if (response.ok) {
           const data = await response.json();
           setMessages(data.messages || []);
-        } else {
-          throw new Error('Erreur lors du chargement des messages');
         }
       } catch (error) {
         console.error('Erreur chargement messages:', error);
-        setError('Impossible de charger les messages');
       } finally {
         setLoadingMessages(false);
       }
@@ -58,7 +51,6 @@ export default function ChatArea({ conversationId, userId }) {
     const userMessage = inputValue.trim();
     setInputValue('');
     setLoading(true);
-    setError(null);
 
     // Ajouter immédiatement le message utilisateur
     const tempUserMsg = {
@@ -94,9 +86,16 @@ export default function ChatArea({ conversationId, userId }) {
       ]);
     } catch (error) {
       console.error('Erreur:', error);
-      setError('Désolé, une erreur s\'est produite. Veuillez réessayer.');
-      // Retirer le message temporaire en cas d'erreur
-      setMessages(prev => prev.filter(m => m.id !== tempUserMsg.id));
+      // Ajouter un message d'erreur
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          content: 'Désolé, une erreur s\'est produite. Veuillez réessayer.',
+          role: 'assistant',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -155,7 +154,7 @@ export default function ChatArea({ conversationId, userId }) {
 
       {/* Zone des messages */}
       <div className="flex-1 overflow-y-auto p-4">
-        {loadingMessages ? (
+        {loading ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
@@ -195,7 +194,7 @@ export default function ChatArea({ conversationId, userId }) {
               </div>
             ))}
 
-            {loading && (
+            {false && (
               <div className="flex justify-start">
                 <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
                   <div className="flex space-x-2">

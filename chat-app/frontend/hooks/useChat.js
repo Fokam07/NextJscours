@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 
-export function useChat(conversationId) {
+export function useChat(conversationId, userId) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,14 +18,18 @@ export function useChat(conversationId) {
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+        const res = await fetch(`/api/conversations/${conversationId}`, {
           credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId,
+          },
         });
 
-        if (!res.ok) throw new Error('Erreur chargement messages');
+        if (!res.ok || res.error) throw new Error(res.error || 'Erreur chargement messages');
 
         const data = await res.json();
-        setMessages(data || []);
+        setMessages(data.messages || []);
       } catch (err) {
         setError(err.message);
         console.error(err);
@@ -39,6 +43,8 @@ export function useChat(conversationId) {
 
   // Envoyer un message
   const sendMessage = async (content) => {
+    setLoading(true);
+    setError(null);
     if (!conversationId || !content?.trim()) return;
 
     // Optimistic UI
@@ -50,16 +56,18 @@ export function useChat(conversationId) {
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
-
     try {
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
         body: JSON.stringify({ content: content.trim() }),
         credentials: 'include',
       });
 
-      if (!res.ok) throw new Error('Erreur envoi message');
+      if (!res.ok || res.error) throw new Error(res.error || 'Erreur envoi message');
 
       const { userMessage, assistantMessage } = await res.json();
 
@@ -71,6 +79,8 @@ export function useChat(conversationId) {
       setError(err.message);
       // Retirer le message optimiste en cas d'erreur
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+    } finally {
+      setLoading(false);
     }
   };
 

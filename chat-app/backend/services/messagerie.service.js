@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma.js';
-import { conversationService } from '@/backend/services/conversation.service';
+import { conversationService } from './conversation.service.js';
+import { llmService } from './llm.service.js';
 
 export const messageService = {
   /**
@@ -26,7 +27,7 @@ export const messageService = {
   /**
    * Créer un message utilisateur et obtenir la réponse du LLM
    */
-  async sendMessage({ conversationId, userId, content, llmService }) {
+  async sendMessage({ conversationId, userId, content }) {
     // Créer le message utilisateur
     const userMessage = await this.createMessage({
       conversationId,
