@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { conversationService } from '@/backend/services/conversation.service.js';
+import { conversationService } from '@/backend/services/conversationService';
 
 /**
  * GET /api/conversations
@@ -7,6 +7,7 @@ import { conversationService } from '@/backend/services/conversation.service.js'
  */
 export async function GET(request) {
   try {
+    // TODO: Récupérer l'userId depuis Supabase session
     const userId = request.headers.get('x-user-id');
     
     if (!userId) {
@@ -16,13 +17,11 @@ export async function GET(request) {
       );
     }
 
-    console.log('📥 GET /api/conversations - userId:', userId);
     const conversations = await conversationService.getUserConversations(userId);
-    console.log('✅ Conversations récupérées:', conversations.length);
     
     return NextResponse.json(conversations);
   } catch (error) {
-    console.error('❌ Erreur GET /api/conversations:', error);
+    console.error('Erreur GET /api/conversations:', error);
     return NextResponse.json(
       { error: error.message },
       { status: 500 }
@@ -45,19 +44,16 @@ export async function POST(request) {
       );
     }
 
-    const body = await request.json().catch(() => ({}));
-    const title = body.title || 'Nouvelle conversation';
+    const { title } = await request.json();
     
-    console.log('📝 POST /api/conversations - userId:', userId, 'title:', title);
     const conversation = await conversationService.createConversation(
       userId,
       title
     );
-    console.log('✅ Conversation créée:', conversation.id);
     
     return NextResponse.json(conversation, { status: 201 });
   } catch (error) {
-    console.error('❌ Erreur POST /api/conversations:', error);
+    console.error('Erreur POST /api/conversations:', error);
     return NextResponse.json(
       { error: error.message },
       { status: 500 }
