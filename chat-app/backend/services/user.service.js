@@ -24,6 +24,19 @@ export const userService = {
   },
 
   /**
+   * recuperer un utilisateur et le creer si il n'existe pas
+   */
+
+  async findOrCreateIfNotExist({email, id}) {
+    const user = await this.findByEmail(email);
+    if(user===null){
+      const username = email.split("@")[0];
+      return await this.createUser({email, username, id});
+    }
+    return user;
+  },
+
+  /**
    * Trouver un utilisateur par email
    */
   async findByEmail(email) {

@@ -47,6 +47,10 @@ export const messageService = {
       role: msg.role,
       content: msg.content,
     }));
+    if (history.length === 0){
+      const title = await llmService.generateConversationTitle(content)
+      await conversationService.updateConversationTitle(conversationId, title);
+    }
 
     // Obtenir la réponse du LLM
     const llmResponse = await llmService.generateResponse(history);

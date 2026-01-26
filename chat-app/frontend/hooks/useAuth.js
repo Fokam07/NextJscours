@@ -42,9 +42,14 @@ export function useAuth() {
       return data.user;
   }
 
-  const findUser = async (id) => {
-      const res = await fetch(`/api/auth/${id}`, {
-        method: 'GET',
+  const findOrCreateUser = async (id, email) => {
+      const res = await fetch(`/api/auth`, {
+        method: 'POST',
+        headers:{
+          'Content-Type': 'application/json',
+          'x-user-id':id
+        },
+        body:JSON.stringify({email}),
         credentials: 'include',
       });
 
@@ -101,7 +106,8 @@ export function useAuth() {
         setError(error.message);
         return false;
       }
-      const user =  await findUser(data.user.id);
+      console.log("les data supabase", data.user);
+      const user =  await findOrCreateUser(data.user.id, data.user.email);
       setUser(user);
       return true;
     } catch (error) {
