@@ -6,7 +6,7 @@ export const messageService = {
   /**
    * Créer un nouveau message
    */
-  async createMessage({ conversationId, userId, content, role, model = null, tokens = null }) {
+  async createMessage({ conversationId, userId, content, role, model = null, tokens = null, files = [] }) {
     const message = await prisma.message.create({
       data: {
         content,
@@ -15,6 +15,7 @@ export const messageService = {
         userId,
         model,
         tokens,
+        files: files.length > 0 ? JSON.stringify(files) : null,
       },
     });
 
@@ -27,13 +28,14 @@ export const messageService = {
   /**
    * Créer un message utilisateur et obtenir la réponse du LLM
    */
-  async sendMessage({ conversationId, userId, content }) {
-    // Créer le message utilisateur
+  async sendMessage({ conversationId, userId, content, files = [] }) {
+    // Créer le message utilisateur avec les fichiers
     const userMessage = await this.createMessage({
       conversationId,
       userId,
       content,
       role: 'user',
+      files,
     });
 
     // Récupérer l'historique de la conversation
@@ -47,9 +49,10 @@ export const messageService = {
       role: msg.role,
       content: msg.content,
     }));
+    
     if (history.length === 0){
-      const title = await llmService.generateConversationTitle(content)
-      await conversationService.updateConversationTitle(conversationId, title);
+      const title = await llmService.generateConversationTitle(content);
+      await conversationService.updateConversationTitle(conversationId, userId, title);
     }
 
     // Obtenir la réponse du LLM
@@ -78,10 +81,16 @@ export const messageService = {
     // Vérifier que l'utilisateur a accès à cette conversation
     await conversationService.getConversationById(conversationId, userId);
 
-    return await prisma.message.findMany({
+    const messages = await prisma.message.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'asc' },
     });
+
+    // Parser les fichiers JSON en objets
+    return messages.map(msg => ({
+      ...msg,
+      files: msg.files ? JSON.parse(msg.files) : [],
+    }));
   },
 
   /**
