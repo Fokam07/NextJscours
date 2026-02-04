@@ -26,7 +26,10 @@ export function useChat(conversationId, userId) {
           },
         });
 
-        if (!res.ok || res.error) throw new Error(res.error || 'Erreur chargement messages');
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Erreur chargement messages');
+        }
 
         const data = await res.json();
         setMessages(data.messages || []);
@@ -41,39 +44,62 @@ export function useChat(conversationId, userId) {
     fetchMessages();
   }, [conversationId]);
 
-  // Envoyer un message
-  const sendMessage = async (content) => {
+  // Envoyer un message avec support des fichiers
+  const sendMessage = async (content, files = []) => {
     setLoading(true);
     setError(null);
-    if (!conversationId || !content?.trim()) return;
+    if (!conversationId || (!content?.trim() && files.length === 0)) {
+      setLoading(false);
+      return;
+    }
 
-    // Optimistic UI
+    // Optimistic UI - Message utilisateur
     const optimisticMsg = {
-      id: Date.now(),
-      content: content.trim(),
+      id: `temp-${Date.now()}`,
+      content: content?.trim() || '',
       role: 'user',
       createdAt: new Date().toISOString(),
+      attachments: files.map(f => ({
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        preview: f.preview
+      }))
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
+
     try {
+      // Préparer FormData pour l'upload de fichiers
+      const formData = new FormData();
+      formData.append('content', content?.trim() || '');
+      
+      // Ajouter les fichiers
+      files.forEach((fileObj) => {
+        formData.append('files', fileObj.file);
+      });
+
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'x-user-id': userId,
         },
-        body: JSON.stringify({ content: content.trim() }),
+        body: formData,
         credentials: 'include',
       });
 
-      if (!res.ok || res.error) throw new Error(res.error || 'Erreur envoi message');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Erreur envoi message');
+      }
 
       const { userMessage, assistantMessage } = await res.json();
 
-      // Remplacer le message optimiste
+      // Remplacer le message optimiste par les vrais messages
       setMessages((prev) =>
-        prev.map((m) => (m.id === optimisticMsg.id ? userMessage : m)).concat(assistantMessage)
+        prev
+          .filter((m) => m.id !== optimisticMsg.id)
+          .concat([userMessage, assistantMessage])
       );
     } catch (err) {
       setError(err.message);
