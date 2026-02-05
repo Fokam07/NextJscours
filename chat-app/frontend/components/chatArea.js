@@ -227,7 +227,11 @@ function safeParseAttachments(value) {
         <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
           Conversation
         </h2>
-        <ShareButtons />
+        {/* 🔥 MODIFICATION ICI - Ajout du conversationId en prop */}
+        <ShareButtons 
+          conversationId={conversationId}
+          title="Découvrez cette conversation"
+        />
       </div>
 
       {/* Zone des messages */}

@@ -29,7 +29,11 @@ model Conversation {
 
   messages Message[]
 
+  shareId     String?  @unique   
+  isPublic    Boolean  @default(false)
+
   @@index([userId])
+  @@index([shareId])
 }
 
 model Message {
