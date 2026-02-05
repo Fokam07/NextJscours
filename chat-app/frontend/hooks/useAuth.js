@@ -6,7 +6,6 @@ export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const router = useRouter();
 
   useEffect(() => {
     // Vérifier la session actuelle

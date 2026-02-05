@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 import ShareButtons from '@/frontend/services/shareButton';
+import { marked } from 'marked';
+import DOMpurify from 'dompurify';
 
 export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
   const [inputValue, setInputValue] = useState('');
@@ -290,7 +292,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                   )}
 
                   <div
-                    className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg ${
+                    className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg p-3 bg-gray-100 max-w-[80%] ${
                       message.role === 'user'
                         ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white'
                         : 'bg-white text-gray-800 border border-gray-100'
