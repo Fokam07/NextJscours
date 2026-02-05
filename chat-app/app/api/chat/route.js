@@ -13,6 +13,7 @@ export async function POST(request) {
     if (!message?.trim()) {
       return NextResponse.json({ error: "Message requis" }, { status: 400 });
     }
+      
 
     // 1. Sauvegarde message utilisateur
     const userMessage = await prisma.message.create({

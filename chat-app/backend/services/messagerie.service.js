@@ -1,7 +1,7 @@
 // backend/services/message.service.js
 import prisma from '../lib/prisma.js';
 import { conversationService } from './conversation.service.js';
-import { llmService } from './llm.service.js';
+import { llmServicer , llmService} from './llm.service.js';
 
 export const messageService = {
   /**
@@ -46,7 +46,7 @@ export const messageService = {
    * Envoyer un message utilisateur → générer la réponse IA
    * Gère aussi la création du titre automatique si première interaction
    */
-  async sendMessage({ conversationId, userId, content, attachments = [] }) {
+  async sendMessage({ conversationId, userId, content, attachments = []}) {
     try {
       // 1. Vérifier que la conversation existe et appartient à l'utilisateur
       const conversation = await conversationService.getConversationById(conversationId, userId);
@@ -88,7 +88,7 @@ export const messageService = {
 
       // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
       const lastAttachments = attachments.length > 0 ? attachments : [];
-      const llmResponse = await llmService.generateResponse(history, lastAttachments);
+      const llmResponse = await llmServicer.generateResponse( content, history, lastAttachments, conversationId);
 
       // 7. Créer le message assistant
       const assistantMessage = await this.createMessage({

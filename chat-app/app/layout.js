@@ -1,5 +1,6 @@
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/frontend/styles/globals.css";
+import { NavigateProvider } from "@/frontend/hooks/useNavigate";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,7 +23,9 @@ export default function RootLayout({ children }) {
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
+        <NavigateProvider>
+          {children}
+        </NavigateProvider>
       </body>
     </html>
   );

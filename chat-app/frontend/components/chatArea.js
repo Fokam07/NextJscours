@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 import ShareButtons from '@/frontend/services/shareButton';
+import { marked } from 'marked';
+import DOMpurify from 'dompurify';
 
 export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
   const [inputValue, setInputValue] = useState('');
@@ -114,12 +116,13 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
   );
 
+  const parseMessage = (text) =>DOMpurify.sanitize(marked.parse(text));
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 ">
       {/* Texte du message */}
       {message.content && (
-        <p className="whitespace-pre-wrap break-words leading-relaxed">
-          {message.content}
+        <p dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="whitespace-pre-wrap break-words leading-relaxed ">
         </p>
       )}
 
@@ -274,7 +277,7 @@ function safeParseAttachments(value) {
                   )}
 
                   <div
-                    className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg ${
+                    className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg p-3 bg-gray-100 max-w-[80%] ${
                       message.role === 'user'
                         ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white'
                         : 'bg-white text-gray-800 border border-gray-100'
