@@ -5,16 +5,65 @@ import ShareButtons from '@/frontend/services/shareButton';
 import { marked } from 'marked';
 import DOMpurify from 'dompurify';
 
-export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
+export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpenSidebar }) {
   const [inputValue, setInputValue] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const attachMenuRef = useRef(null);
 
   const { sendMessage, error, messages, loading } = useChat(conversationId, userId);
+
+  // Initialiser la reconnaissance vocale
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        recognitionInstance.continuous = true;
+        recognitionInstance.interimResults = true;
+        recognitionInstance.lang = 'fr-FR';
+
+        recognitionInstance.onresult = (event) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          if (finalTranscript) {
+            setInputValue(prev => prev + finalTranscript);
+          }
+        };
+
+        recognitionInstance.onerror = (event) => {
+          console.error('Erreur de reconnaissance vocale:', event.error);
+          setIsRecording(false);
+          
+          if (event.error === 'not-allowed') {
+            alert('Veuillez autoriser l\'accès au microphone dans les paramètres de votre navigateur.');
+          }
+        };
+
+        recognitionInstance.onend = () => {
+          setIsRecording(false);
+        };
+
+        setRecognition(recognitionInstance);
+      }
+    }
+  }, []);
 
   // Auto-scroll vers le bas
   useEffect(() => {
@@ -119,6 +168,27 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
       imageInputRef.current.click();
     }
     setShowAttachMenu(false);
+  };
+
+  // Fonction pour gérer le microphone
+  const handleMicrophoneToggle = () => {
+    if (!recognition) {
+      alert('La reconnaissance vocale n\'est pas supportée par votre navigateur. Essayez Chrome, Edge ou Safari.');
+      return;
+    }
+
+    if (isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognition.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Erreur lors du démarrage:', error);
+        setIsRecording(false);
+      }
+    }
   };
 
   // Fonction pour parser les attachments de manière sécurisée
@@ -238,20 +308,36 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
 
   return (
     <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-blue-50/20 to-purple-50/20">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm">
-        <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+      {/* Header - Responsive avec bouton hamburger */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-4 shadow-sm">
+        {/* Bouton Hamburger (Mobile seulement) */}
+        {onOpenSidebar && (
+          <button
+            onClick={onOpenSidebar}
+            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            title="Ouvrir le menu"
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
+
+        <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent flex-1 min-w-0 truncate">
           Conversation
         </h2>
-        <ShareButtons 
-          conversationId={conversationId}
-          userId={userId}
-          title="Découvrez cette conversation"
-        />
+        
+        <div className="flex-shrink-0">
+          <ShareButtons 
+            conversationId={conversationId}
+            userId={userId}
+            title="Découvrez cette conversation"
+          />
+        </div>
       </div>
 
       {/* Zone des messages */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {loading && messages.length === 0 ? (
           <div className="flex justify-center items-center h-full">
             <div className="relative">
@@ -272,7 +358,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 </svg>
               </div>
               <p className="text-xl font-semibold text-gray-600">Commencez la conversation</p>
-              <p className="text-sm mt-2 text-gray-400">Posez une question à Groq AI</p>
+              <p className="text-sm mt-2 text-gray-400">Posez une question à gemini AI</p>
             </div>
           </div>
         ) : (
@@ -351,7 +437,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
 
       {/* 🔥 ZONE DE SAISIE STYLE GROK - Barre arrondie comme l'image */}
       <div className="bg-[#212121] border-t border-gray-800">
-        <div className="px-6 py-4">
+        <div className="px-4 sm:px-6 py-3 sm:py-4">
           <form onSubmit={handleSendMessage}>
             {/* Aperçu des fichiers attachés */}
             {attachedFiles.length > 0 && (
@@ -363,7 +449,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                         <img 
                           src={file.preview} 
                           alt={file.name}
-                          className="w-16 h-16 object-cover rounded-lg border border-gray-700"
+                          className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg border border-gray-700"
                         />
                         <button
                           type="button"
@@ -394,7 +480,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
             )}
 
             {/* Barre de saisie style Grok - Arrondie complète */}
-            <div className="flex items-center gap-3 bg-[#2a2a2a] rounded-full px-4 py-2.5 border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
+            <div className="flex items-center gap-2 sm:gap-3 bg-[#2a2a2a] rounded-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
               {/* Input file cachés */}
               <input
                 ref={fileInputRef}
@@ -466,14 +552,24 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 )}
               </div>
 
-              {/* Input texte - Style Grok exact */}
-              <input
-                type="text"
+              {/* Textarea - Style Grok exact avec retour à la ligne */}
+              <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="How can Grok help?"
-                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-[15px]"
+                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-[15px] resize-none overflow-hidden"
                 disabled={loading}
+                rows={1}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
               />
 
               {/* Boutons à droite - Style Grok */}
@@ -481,7 +577,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 {/* Bouton Automatique */}
                 <button
                   type="button"
-                  className="text-gray-300 hover:text-white transition-colors flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
+                  className="text-gray-300 hover:text-white transition-colors hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -495,8 +591,13 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 {/* Bouton micro */}
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700 rounded-full"
-                  title="Commande vocale"
+                  onClick={handleMicrophoneToggle}
+                  className={`transition-all p-1.5 sm:p-2 rounded-full ${
+                    isRecording 
+                      ? 'bg-red-600 text-white animate-pulse' 
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                  title={isRecording ? "Arrêter l'enregistrement" : "Commande vocale"}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
