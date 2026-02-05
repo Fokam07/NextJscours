@@ -6,8 +6,11 @@ import ShareButtons from '@/frontend/services/shareButton';
 export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
   const [inputValue, setInputValue] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const attachMenuRef = useRef(null);
 
   const { sendMessage, error, messages, loading } = useChat(conversationId, userId);
 
@@ -15,6 +18,18 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Fermer le menu au clic extérieur
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target)) {
+        setShowAttachMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Générer un titre automatique après le premier message
   useEffect(() => {
@@ -56,7 +71,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     await sendMessage(userMessage, files);
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (e, type = 'file') => {
     const files = Array.from(e.target.files);
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     
@@ -77,6 +92,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     }));
     
     setAttachedFiles(prev => [...prev, ...newFiles]);
+    setShowAttachMenu(false);
   };
 
   const handleRemoveFile = (index) => {
@@ -90,113 +106,112 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     });
   };
 
-  const handleCameraCapture = () => {
-    fileInputRef.current.click();
-  };
-
-  const handleFileUpload = () => {
-    fileInputRef.current.click();
+  const handleAttachClick = (type) => {
+    if (type === 'image') {
+      imageInputRef.current.click();
+    } else if (type === 'document') {
+      fileInputRef.current.click();
+    } else if (type === 'camera') {
+      imageInputRef.current.setAttribute('capture', 'environment');
+      imageInputRef.current.click();
+    }
+    setShowAttachMenu(false);
   };
 
   const renderMessageContent = (message) => {
-  // Normalisation : on veut TOUJOURS un tableau (même vide)
-  const attachments = Array.isArray(message.attachments)
-    ? message.attachments
-    : message.attachments && typeof message.attachments === 'string'
-      ? safeParseAttachments(message.attachments)
-      : [];
+    const attachments = Array.isArray(message.attachments)
+      ? message.attachments
+      : message.attachments && typeof message.attachments === 'string'
+        ? safeParseAttachments(message.attachments)
+        : [];
 
-  const imageAttachments = attachments.filter(
-    att => att && typeof att.type === 'string' && att.type.startsWith('image/')
-  );
+    const imageAttachments = attachments.filter(
+      att => att && typeof att.type === 'string' && att.type.startsWith('image/')
+    );
 
-  const otherAttachments = attachments.filter(
-    att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
-  );
+    const otherAttachments = attachments.filter(
+      att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
+    );
 
-  return (
-    <div className="space-y-2">
-      {/* Texte du message */}
-      {message.content && (
-        <p className="whitespace-pre-wrap break-words leading-relaxed">
-          {message.content}
-        </p>
-      )}
+    return (
+      <div className="space-y-2">
+        {message.content && (
+          <p className="whitespace-pre-wrap break-words leading-relaxed">
+            {message.content}
+          </p>
+        )}
 
-      {/* Images attachées */}
-      {imageAttachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-3">
-          {imageAttachments.map((attachment, idx) => (
-            <div key={idx} className="relative group">
-              <img
-                src={attachment.url || attachment.preview || attachment.dataUrl}
-                alt={attachment.name || 'Image jointe'}
-                className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
-                onClick={() => {
-                  const src = attachment.url || attachment.preview || attachment.dataUrl;
-                  if (src) window.open(src, '_blank');
-                }}
-              />
-              <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                Cliquer pour agrandir
+        {imageAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {imageAttachments.map((attachment, idx) => (
+              <div key={idx} className="relative group">
+                <img
+                  src={attachment.url || attachment.preview || attachment.dataUrl}
+                  alt={attachment.name || 'Image jointe'}
+                  className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
+                  onClick={() => {
+                    const src = attachment.url || attachment.preview || attachment.dataUrl;
+                    if (src) window.open(src, '_blank');
+                  }}
+                />
+                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Cliquer pour agrandir
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {/* Documents / autres fichiers */}
-      {otherAttachments.length > 0 && (
-        <div className="space-y-2 mt-3">
-          {otherAttachments.map((attachment, idx) => (
-            <a
-              key={idx}
-              href={attachment.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
-                message.role === 'user'
-                  ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
-                  : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
-              }`}
-            >
-              <div className={`p-2 rounded-lg ${
-                message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
-              }`}>
-                <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        {otherAttachments.length > 0 && (
+          <div className="space-y-2 mt-3">
+            {otherAttachments.map((attachment, idx) => (
+              <a
+                key={idx}
+                href={attachment.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
+                  message.role === 'user'
+                    ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
+                    : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
+                }`}
+              >
+                <div className={`p-2 rounded-lg ${
+                  message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
+                }`}>
+                  <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
+                    {attachment.name || 'Document'}
+                  </p>
+                  <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
+                    {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
+                  </p>
+                </div>
+                <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
-                  {attachment.name || 'Document'}
-                </p>
-                <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                  {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
-                </p>
-              </div>
-              <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-// Fonction helper pour parser en sécurité (à mettre juste au-dessus ou dans un util)
-function safeParseAttachments(value) {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.warn("Impossible de parser attachments :", value);
-    return [];
+  function safeParseAttachments(value) {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.warn("Impossible de parser attachments :", value);
+      return [];
+    }
   }
-}
 
   if (!conversationId) {
     return (
@@ -224,7 +239,6 @@ function safeParseAttachments(value) {
         <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
           Conversation
         </h2>
-        {/* 🔥 MODIFICATION ICI - Ajout du conversationId en prop */}
         <ShareButtons 
           conversationId={conversationId}
           title="Découvrez cette conversation"
@@ -264,7 +278,6 @@ function safeParseAttachments(value) {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
               >
                 <div className="flex gap-3 max-w-[85%]">
-                  {/* Avatar Assistant */}
                   {message.role === 'assistant' && (
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,7 +309,6 @@ function safeParseAttachments(value) {
                     </p>
                   </div>
 
-                  {/* Avatar Utilisateur */}
                   {message.role === 'user' && (
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/30">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,116 +344,163 @@ function safeParseAttachments(value) {
         )}
       </div>
 
-      {/* Zone de saisie */}
-      <div className="border-t bg-white/80 backdrop-blur-xl p-6 shadow-lg">
-        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
-          {/* Aperçu des fichiers attachés */}
-          {attachedFiles.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-3">
-              {attachedFiles.map((file, index) => (
-                <div key={index} className="relative group animate-fadeIn">
-                  {file.preview ? (
-                    <div className="relative">
-                      <img 
-                        src={file.preview} 
-                        alt={file.name}
-                        className="w-24 h-24 object-cover rounded-xl border-2 border-purple-200 shadow-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-3 rounded-xl border-2 border-purple-200 shadow-md">
-                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* 🔥 NOUVELLE ZONE DE SAISIE - Pleine largeur comme image 2 */}
+      <div className="bg-[#212121] border-t border-gray-800">
+        <div className="px-6 py-4">
+          <form onSubmit={handleSendMessage}>
+            {/* Aperçu des fichiers attachés */}
+            {attachedFiles.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {attachedFiles.map((file, index) => (
+                  <div key={index} className="relative group">
+                    {file.preview ? (
+                      <div className="relative">
+                        <img 
+                          src={file.preview} 
+                          alt={file.name}
+                          className="w-16 h-16 object-cover rounded-lg border border-gray-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(index)}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 text-xs"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-xs text-gray-300 max-w-[80px] truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(index)}
+                          className="text-gray-500 hover:text-white text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Barre de saisie pleine largeur */}
+            <div className="flex items-center gap-4">
+              {/* Input file cachés */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={(e) => handleFileSelect(e, 'document')}
+                accept="application/pdf,.doc,.docx,.txt"
+                multiple
+                className="hidden"
+              />
+              <input
+                ref={imageInputRef}
+                type="file"
+                onChange={(e) => handleFileSelect(e, 'image')}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+
+              {/* Bouton pièce jointe avec menu déroulant */}
+              <div className="relative" ref={attachMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowAttachMenu(!showAttachMenu)}
+                  className="text-gray-400 hover:text-gray-200 transition-colors p-2 hover:bg-gray-800 rounded-lg"
+                  title="Joindre un fichier"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                </button>
+
+                {/* Menu déroulant */}
+                {showAttachMenu && (
+                  <div className="absolute bottom-full left-0 mb-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 min-w-[200px] z-50">
+                    <button
+                      type="button"
+                      onClick={() => handleAttachClick('image')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                    >
+                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-gray-200 text-sm">Téléverser une image</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAttachClick('document')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                    >
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <span className="text-sm text-gray-700 font-medium max-w-[120px] truncate">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(index)}
-                        className="ml-2 text-red-500 hover:text-red-600 font-bold"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                      <span className="text-gray-200 text-sm">Téléverser un document</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAttachClick('camera')}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                    >
+                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="text-gray-200 text-sm">Prendre une photo</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Input texte - Pleine largeur */}
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="How can Grok help?"
+                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-[15px] py-3"
+                disabled={loading}
+              />
+
+              {/* Boutons à droite */}
+              <div className="flex items-center gap-3">
+                {/* Bouton Automatique (optionnel) */}
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded-lg"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="text-sm">Automatique</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Bouton micro (optionnel) */}
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-200 transition-colors p-2 hover:bg-gray-800 rounded-full"
+                  title="Commande vocale"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </button>
+              </div>
             </div>
-          )}
-
-          <div className="flex gap-3 items-end">
-            {/* Input file caché */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileSelect}
-              accept="image/*,application/pdf,.doc,.docx,.txt"
-              capture="environment"
-              multiple
-              className="hidden"
-            />
-
-            {/* Boutons d'upload */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCameraCapture}
-                className="p-3 text-gray-600 hover:bg-purple-50 rounded-xl transition-all border-2 border-transparent hover:border-purple-200"
-                title="Prendre une photo"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleFileUpload}
-                className="p-3 text-gray-600 hover:bg-purple-50 rounded-xl transition-all border-2 border-transparent hover:border-purple-200"
-                title="Joindre un fichier"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Input texte */}
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Écrivez votre message..."
-              className="flex-1 px-5 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-gray-800 placeholder-gray-400"
-              disabled={loading}
-            />
-
-            {/* Bouton envoi */}
-            <button
-              type="submit"
-              disabled={loading || (!inputValue.trim() && attachedFiles.length === 0)}
-              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02]"
-            >
-              {loading ? (
-                <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
 
       <style jsx>{`
