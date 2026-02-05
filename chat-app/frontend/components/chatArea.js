@@ -39,6 +39,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
         generateTitle(firstUserMessage.content);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
   const generateTitle = async (firstMessage) => {
@@ -117,6 +118,18 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     }
     setShowAttachMenu(false);
   };
+
+  // Fonction pour parser les attachments de manière sécurisée
+  function safeParseAttachments(value) {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.warn("Impossible de parser attachments :", value);
+      return [];
+    }
+  }
 
   const renderMessageContent = (message) => {
     const attachments = Array.isArray(message.attachments)
@@ -202,17 +215,6 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     );
   };
 
-  function safeParseAttachments(value) {
-    if (!value) return [];
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      console.warn("Impossible de parser attachments :", value);
-      return [];
-    }
-  }
-
   if (!conversationId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
@@ -241,6 +243,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
         </h2>
         <ShareButtons 
           conversationId={conversationId}
+          userId={userId}
           title="Découvrez cette conversation"
         />
       </div>
@@ -344,7 +347,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
         )}
       </div>
 
-      {/* 🔥 NOUVELLE ZONE DE SAISIE - Pleine largeur comme image 2 */}
+      {/* 🔥 ZONE DE SAISIE STYLE GROK - Barre arrondie comme l'image */}
       <div className="bg-[#212121] border-t border-gray-800">
         <div className="px-6 py-4">
           <form onSubmit={handleSendMessage}>
@@ -388,8 +391,8 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
               </div>
             )}
 
-            {/* Barre de saisie pleine largeur */}
-            <div className="flex items-center gap-4">
+            {/* Barre de saisie style Grok - Arrondie complète */}
+            <div className="flex items-center gap-3 bg-[#2a2a2a] rounded-full px-4 py-2.5 border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
               {/* Input file cachés */}
               <input
                 ref={fileInputRef}
@@ -408,15 +411,15 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 className="hidden"
               />
 
-              {/* Bouton pièce jointe avec menu déroulant */}
+              {/* Bouton pièce jointe */}
               <div className="relative" ref={attachMenuRef}>
                 <button
                   type="button"
                   onClick={() => setShowAttachMenu(!showAttachMenu)}
-                  className="text-gray-400 hover:text-gray-200 transition-colors p-2 hover:bg-gray-800 rounded-lg"
+                  className="text-gray-400 hover:text-gray-200 transition-colors p-1.5 hover:bg-gray-700 rounded-lg"
                   title="Joindre un fichier"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                 </button>
@@ -461,39 +464,39 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
                 )}
               </div>
 
-              {/* Input texte - Pleine largeur */}
+              {/* Input texte - Style Grok exact */}
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="How can Grok help?"
-                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-[15px] py-3"
+                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-[15px]"
                 disabled={loading}
               />
 
-              {/* Boutons à droite */}
-              <div className="flex items-center gap-3">
-                {/* Bouton Automatique (optionnel) */}
+              {/* Boutons à droite - Style Grok */}
+              <div className="flex items-center gap-2">
+                {/* Bouton Automatique */}
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded-lg"
+                  className="text-gray-300 hover:text-white transition-colors flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  <span className="text-sm">Automatique</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span>Automatique</span>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
-                {/* Bouton micro (optionnel) */}
+                {/* Bouton micro */}
                 <button
                   type="button"
-                  className="text-gray-400 hover:text-gray-200 transition-colors p-2 hover:bg-gray-800 rounded-full"
+                  className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700 rounded-full"
                   title="Commande vocale"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
                 </button>
