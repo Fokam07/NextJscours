@@ -7,15 +7,16 @@ import LoginForm from '@/frontend/components/loginForm';
 import RegisterForm from '@/frontend/components/registerform';
 import Sidebar from '@/frontend/components/sideBar';
 import ChatArea from '@/frontend/components/chatArea';
+import { useNavigate } from '@/frontend/hooks/useNavigate';
+import HomePage from '@/frontend/components/home';
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
-
+  const {pop,push, route} = useNavigate();
   const {
     conversations,
-    loading,
     createConversation,
     deleteConversation,
     refreshConversations,
@@ -27,21 +28,6 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
       </div>
-    );
-  }
-
-  // Formulaires de connexion/inscription
-  if (!user) {
-    return showRegister ? (
-      <RegisterForm
-        onRegister={signUp}
-        onSwitchToLogin={() => setShowRegister(false)}
-      />
-    ) : (
-      <LoginForm
-        onLogin={signIn}
-        onSwitchToRegister={() => setShowRegister(true)}
-      />
     );
   }
 
@@ -62,21 +48,53 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOut();
+    push('home', true);
     setCurrentConversationId(null);
   };
-
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelectConversation={setCurrentConversationId}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onSignOut={handleSignOut}
-        user={user}
+  console.log("la route actuelle ", route)
+  switch (route) {
+    case 'home':
+      return <HomePage></HomePage>;
+    case 'login':
+      console.log("losh sur login");
+      return <LoginForm
+        onLogin={(email, password)=>{
+          signIn(email, password).then((success)=>{
+            if(success){
+              push('chat-area', true);
+            }
+          })
+        }}
+        onSwitchToRegister={() => push('register')}
       />
-      <ChatArea conversationId={currentConversationId} userId={user?.id} />
-    </div>
-  );
+    case 'register':
+      return <RegisterForm
+        onRegister={(email, password, username)=>{
+          signUp(email, password, username).then((succes)=>{
+            if(succes){
+              push('chat-area', true);
+            }
+          })
+        }}
+        onSwitchToLogin={() => push('login')}
+      />
+    case 'chat-area':
+      return (
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={setCurrentConversationId}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={handleDeleteConversation}
+            onSignOut={handleSignOut}
+            user={user}
+          />
+          <ChatArea conversationId={currentConversationId} userId={user?.id} />
+        </div>
+      );
+    default:
+      console.log("ca ne sert a rien")
+      break;
+  }
 }
