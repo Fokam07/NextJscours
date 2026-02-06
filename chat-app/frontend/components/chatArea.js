@@ -11,10 +11,13 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState(null);
+  const [selectedModel, setSelectedModel] = useState('gemini');
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const attachMenuRef = useRef(null);
+  const modelMenuRef = useRef(null);
 
   const { sendMessage, error, messages, loading } = useChat(conversationId, userId);
 
@@ -76,6 +79,9 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
       if (attachMenuRef.current && !attachMenuRef.current.contains(event.target)) {
         setShowAttachMenu(false);
       }
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target)) {
+        setShowModelMenu(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -120,7 +126,7 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
     setInputValue('');
     setAttachedFiles([]);
     
-    await sendMessage(userMessage, files);
+    await sendMessage(userMessage, files, selectedModel);
   };
 
   const handleFileSelect = (e, type = 'file') => {
@@ -574,19 +580,79 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
 
               {/* Boutons à droite - Style Grok */}
               <div className="flex items-center gap-2">
-                {/* Bouton Automatique */}
-                <button
-                  type="button"
-                  className="text-gray-300 hover:text-white transition-colors hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span>Automatique</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+                {/* Sélecteur de modèle IA */}
+                <div className="relative" ref={modelMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowModelMenu(!showModelMenu)}
+                    className="text-gray-300 hover:text-white transition-colors hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>{selectedModel === 'gemini' ? 'Gemini 2.5' : 'Llama 3.3'}</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Menu déroulant modèles */}
+                  {showModelMenu && (
+                    <div className="absolute bottom-full right-0 mb-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 min-w-[220px] z-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel('gemini');
+                          setShowModelMenu(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left ${
+                          selectedModel === 'gemini' ? 'bg-gray-700' : ''
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            <span className="text-gray-200 font-medium text-sm">Gemini 2.5 Flash</span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5 ml-7">Rapide et polyvalent</p>
+                        </div>
+                        {selectedModel === 'gemini' && (
+                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedModel('llama');
+                          setShowModelMenu(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left ${
+                          selectedModel === 'llama' ? 'bg-gray-700' : ''
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span className="text-gray-200 font-medium text-sm">Llama 3.3 70B</span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5 ml-7">Puissant et précis</p>
+                        </div>
+                        {selectedModel === 'llama' && (
+                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {/* Bouton micro */}
                 <button
