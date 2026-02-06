@@ -116,6 +116,40 @@ export const messageService = {
       throw error;
     }
   },
+  
+  /**
+   * Envoyer un message utilisateur → générer la réponse IA
+   * Gère aussi la création du titre automatique si première interaction
+   */
+  async sendAnonymousMessage({ content, attachments = []}) {
+    try {
+      // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
+      const lastAttachments = attachments.length > 0 ? attachments : [];
+      const llmResponse = await llmServicer.generateResponse( content, [], lastAttachments, Math.random()*100);
+
+      // 8. Retour (avec attachments parsés pour le client)
+      return {
+        userMessage: {
+          id: `temp-${Date.now()}`,
+          content: content?.trim() || '',
+          role: 'user',
+          createdAt: new Date().toISOString(),
+          attachments
+        },
+        assistantMessage: {
+          id: `temp-${Date.now()}ia`,
+          content: llmResponse.content,
+          role: 'assistant',
+          model: llmResponse.nodel,
+          createdAt: new Date().toISOString(),
+          attachments: [],
+        },
+      };
+    } catch (error) {
+      console.error('Erreur dans sendMessage:', error);
+      throw error;
+    }
+  },
 
   /**
    * Récupérer tous les messages d'une conversation (avec parsing des attachments)

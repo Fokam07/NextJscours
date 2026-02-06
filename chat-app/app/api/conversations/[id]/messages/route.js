@@ -11,10 +11,28 @@ export async function POST(request, { params }) {
     const userId = request.headers.get('x-user-id');
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Non authentifié' },
-        { status: 401 }
-      );
+      const contentType = request.headers.get('content-type') || '';
+      let content = '';
+      let attachments = [];
+
+      if (contentType.includes('multipart/form-data')) {
+        // Traiter FormData (avec fichiers)
+        const formData = await request.formData();
+        content = formData.get('content') || '';
+        const files = formData.getAll('files');
+
+        // Upload des fichiers si présents
+        if (files && files.length > 0) {
+          attachments = await uploadFiles(files, userId, params.id);
+        }
+      } else {
+        // Traiter JSON simple (sans fichiers)
+        const body = await request.json();
+        content = body.content || '';
+      }
+
+      const response = await messageService.sendAnonymousMessage({content, attachments: attachments.length > 0 ? attachments : undefined})
+      return NextResponse.json(response);
     }
 
     // Vérifier le type de contenu pour déterminer si des fichiers sont envoyés

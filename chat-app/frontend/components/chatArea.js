@@ -116,14 +116,22 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle }) {
     att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
   );
 
-  const parseMessage = (text) =>DOMpurify.sanitize(marked.parse(text));
+  const parseMessage = (text)=> {
+    marked.setOptions({
+      gfm: true,            // Support GitHub Markdown
+      breaks: true,         // Conserve les sauts de lignes
+      headerIds: false,     // Évite les IDs inutiles
+      mangle: false         // Évite les caractères cassés
+    });
+    return DOMpurify.sanitize(marked.parse(text))
+  };
 
   return (
-    <div className="space-y-2 ">
+    <div className="space-y-2 message-content-wrapper">
       {/* Texte du message */}
       {message.content && (
-        <p dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="whitespace-pre-wrap break-words leading-relaxed ">
-        </p>
+        <div dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="prose dark:prose-invert max-w-none leading-relaxed">
+        </div>
       )}
 
       {/* Images attachées */}
