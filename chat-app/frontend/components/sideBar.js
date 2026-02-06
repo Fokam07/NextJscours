@@ -195,7 +195,7 @@ export default function Sidebar({
               <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent whitespace-nowrap">
                 Chat IA
               </h1>
-              <p className="text-xs text-gray-400 whitespace-nowrap">Groq Intelligence</p>
+              <p className="text-xs text-gray-400 whitespace-nowrap">Groq & Gemini Intelligence</p>
             </div>
           )}
         </div>

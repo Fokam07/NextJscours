@@ -24,6 +24,7 @@ console.log("useNavigate() executé");
 
     const push = (rt, remplace = false) => {
         if (!user && rt !== 'login' && rt !== 'logout' && rt !== 'home') {
+            console.log("l'utilisateur n'est pas connecte")
             setRoute('login');
             setAbr(['login']);
             return;

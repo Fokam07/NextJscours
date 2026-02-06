@@ -46,7 +46,7 @@ export const messageService = {
    * Envoyer un message utilisateur → générer la réponse IA
    * Gère aussi la création du titre automatique si première interaction
    */
-  async sendMessage({ conversationId, userId, content, attachments = []}) {
+  async sendMessage({ conversationId, userId, content, attachments = [], selectedModel = 'gemini'}) {
     try {
       // 1. Vérifier que la conversation existe et appartient à l'utilisateur
       const conversation = await conversationService.getConversationById(conversationId, userId);
@@ -88,7 +88,17 @@ export const messageService = {
 
       // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
       const lastAttachments = attachments.length > 0 ? attachments : [];
-      const llmResponse = await llmServicer.generateResponse( content, history, lastAttachments, conversationId);
+      let llmResponse;
+      
+      // Choisir le service LLM selon le modèle sélectionné
+      if (selectedModel === 'gemini') {
+        llmResponse = await llmServicer.generateResponse(content, history, lastAttachments, conversationId);
+      } else if (selectedModel === 'llama') {
+        llmResponse = await llmService.generateResponse(history, lastAttachments);
+      } else {
+        // Par défaut, utiliser Gemini
+        llmResponse = await llmServicer.generateResponse(content, history, lastAttachments, conversationId);
+      }
 
       // 7. Créer le message assistant
       const assistantMessage = await this.createMessage({
@@ -108,6 +118,40 @@ export const messageService = {
         },
         assistantMessage: {
           ...assistantMessage,
+          attachments: [],
+        },
+      };
+    } catch (error) {
+      console.error('Erreur dans sendMessage:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Envoyer un message utilisateur → générer la réponse IA
+   * Gère aussi la création du titre automatique si première interaction
+   */
+  async sendAnonymousMessage({ content, attachments = []}) {
+    try {
+      // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
+      const lastAttachments = attachments.length > 0 ? attachments : [];
+      const llmResponse = await llmServicer.generateResponse( content, [], lastAttachments, Math.random()*100);
+
+      // 8. Retour (avec attachments parsés pour le client)
+      return {
+        userMessage: {
+          id: `temp-${Date.now()}`,
+          content: content?.trim() || '',
+          role: 'user',
+          createdAt: new Date().toISOString(),
+          attachments
+        },
+        assistantMessage: {
+          id: `temp-${Date.now()}ia`,
+          content: llmResponse.content,
+          role: 'assistant',
+          model: llmResponse.nodel,
+          createdAt: new Date().toISOString(),
           attachments: [],
         },
       };
