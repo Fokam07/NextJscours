@@ -34,3 +34,17 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+.message-content-wrapper pre { /* Utilise une classe parente pour cibler */
+  overflow-x: auto !important; /* Force le défilement horizontal */
+  max-width: 100% !important;  /* S'assure de ne pas déborder */
+  white-space: pre !important; /* Maintient le formatage du code */
+  word-break: normal !important; /* Évite les coupures de mots arbitraires */
+}
+
+.message-content th,
+.message-content td {
+  white-space: nowrap; /* Empêche les cellules de se couper (optionnel, selon le design) */
+  padding: 8px;
+  border: 1px solid #ddd;
+}
