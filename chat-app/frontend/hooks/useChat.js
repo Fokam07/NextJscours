@@ -44,8 +44,8 @@ export function useChat(conversationId, userId) {
     fetchMessages();
   }, [conversationId]);
 
-  // Envoyer un message avec support des fichiers
-  const sendMessage = async (content, files = []) => {
+  // Envoyer un message avec support des fichiers et sélection du modèle
+  const sendMessage = async (content, files = [], selectedModel = 'gemini') => {
     setLoading(true);
     setError(null);
     if (!conversationId || (!content?.trim() && files.length === 0)) {
@@ -73,6 +73,7 @@ export function useChat(conversationId, userId) {
       // Préparer FormData pour l'upload de fichiers
       const formData = new FormData();
       formData.append('content', content?.trim() || '');
+      formData.append('selectedModel', selectedModel); // Ajouter le modèle sélectionné
       
       // Ajouter les fichiers
       files.forEach((fileObj) => {
