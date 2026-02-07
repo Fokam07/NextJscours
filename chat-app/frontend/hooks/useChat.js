@@ -110,10 +110,73 @@ export function useChat(conversationId, userId) {
       setLoading(false);
     }
   };
+  
+  const sendAnonimousMessage = async (content, files = []) => {
+    setLoading(true);
+    setError(null);
+    if ( !content?.trim()) {
+      setLoading(false);
+      return;
+    }
+
+    // Optimistic UI - Message utilisateur
+    const optimisticMsg = {
+      id: `temp-${Date.now()}`,
+      content: content?.trim() || '',
+      role: 'user',
+      createdAt: new Date().toISOString(),
+      attachments: files.map(f => ({
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        preview: f.preview
+      }))
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      // Préparer FormData pour l'upload de fichiers
+      const formData = new FormData();
+      formData.append('content', content?.trim() || '');
+      
+      // Ajouter les fichiers
+      files.forEach((fileObj) => {
+        formData.append('files', fileObj.file);
+      });
+
+      const res = await fetch(`/api/conversations/-1/messages`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Erreur envoi message');
+      }
+
+      const { userMessage, assistantMessage } = await res.json();
+
+      // Remplacer le message optimiste par les vrais messages
+      setMessages((prev) =>
+        prev
+          .filter((m) => m.id !== optimisticMsg.id)
+          .concat([userMessage, assistantMessage])
+      );
+    } catch (err) {
+      setError(err.message);
+      // Retirer le message optimiste en cas d'erreur
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
     messages,
     sendMessage,
+    sendAnonimousMessage,
     loading,
     error,
   };
