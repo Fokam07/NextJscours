@@ -92,7 +92,7 @@ export async function POST(request, context) {
 
     console.log('[Share API] Conversation mise à jour:', updated);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.RENDER_PUBLIC_URL || 'http://localhost:3000';
     const shareUrl = `${baseUrl}/share/${updated.shareId}`;
 
     console.log('[Share API] Succès - URL générée:', shareUrl);
