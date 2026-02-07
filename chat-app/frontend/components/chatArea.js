@@ -210,88 +210,101 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
   }
 
   const renderMessageContent = (message) => {
-    const attachments = Array.isArray(message.attachments)
-      ? message.attachments
-      : message.attachments && typeof message.attachments === 'string'
-        ? safeParseAttachments(message.attachments)
-        : [];
-
-    const imageAttachments = attachments.filter(
-      att => att && typeof att.type === 'string' && att.type.startsWith('image/')
-    );
-
-    const otherAttachments = attachments.filter(
-      att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
-    );
-
-    return (
-      <div className="space-y-2">
-        {message.content && (
-          <p className="whitespace-pre-wrap break-words leading-relaxed">
-            {message.content}
-          </p>
-        )}
-
-        {imageAttachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {imageAttachments.map((attachment, idx) => (
-              <div key={idx} className="relative group">
-                <img
-                  src={attachment.url || attachment.preview || attachment.dataUrl}
-                  alt={attachment.name || 'Image jointe'}
-                  className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
-                  onClick={() => {
-                    const src = attachment.url || attachment.preview || attachment.dataUrl;
-                    if (src) window.open(src, '_blank');
-                  }}
-                />
-                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                  Cliquer pour agrandir
+      // Normalisation : on veut TOUJOURS un tableau (même vide)
+      const attachments = Array.isArray(message.attachments)
+        ? message.attachments
+        : message.attachments && typeof message.attachments === 'string'
+          ? safeParseAttachments(message.attachments)
+          : [];
+    
+      const imageAttachments = attachments.filter(
+        att => att && typeof att.type === 'string' && att.type.startsWith('image/')
+      );
+    
+      const otherAttachments = attachments.filter(
+        att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
+      );
+    
+      const parseMessage = (text)=> {
+        marked.setOptions({
+          gfm: true,            // Support GitHub Markdown
+          breaks: true,         // Conserve les sauts de lignes
+          headerIds: false,     // Évite les IDs inutiles
+          mangle: false         // Évite les caractères cassés
+        });
+        return DOMpurify.sanitize(marked.parse(text))
+      };
+    
+      return (
+        <div className="space-y-2 message-content-wrapper">
+          {/* Texte du message */}
+          {message.content && (
+            <div dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="prose dark:prose-invert max-w-none leading-relaxed">
+            </div>
+          )}
+    
+          {/* Images attachées */}
+          {imageAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {imageAttachments.map((attachment, idx) => (
+                <div key={idx} className="relative group">
+                  <img
+                    src={attachment.url || attachment.preview || attachment.dataUrl}
+                    alt={attachment.name || 'Image jointe'}
+                    className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
+                    onClick={() => {
+                      const src = attachment.url || attachment.preview || attachment.dataUrl;
+                      if (src) window.open(src, '_blank');
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    Cliquer pour agrandir
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {otherAttachments.length > 0 && (
-          <div className="space-y-2 mt-3">
-            {otherAttachments.map((attachment, idx) => (
-              <a
-                key={idx}
-                href={attachment.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
-                  message.role === 'user'
-                    ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
-                    : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
-                }`}
-              >
-                <div className={`p-2 rounded-lg ${
-                  message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
-                }`}>
-                  <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              ))}
+            </div>
+          )}
+    
+          {/* Documents / autres fichiers */}
+          {otherAttachments.length > 0 && (
+            <div className="space-y-2 mt-3">
+              {otherAttachments.map((attachment, idx) => (
+                <a
+                  key={idx}
+                  href={attachment.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
+                    message.role === 'user'
+                      ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
+                      : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${
+                    message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
+                  }`}>
+                    <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
+                      {attachment.name || 'Document'}
+                    </p>
+                    <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
+                    </p>
+                  </div>
+                  <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
-                    {attachment.name || 'Document'}
-                  </p>
-                  <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                    {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
-                  </p>
-                </div>
-                <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    };
 
   if (!conversationId) {
     return (

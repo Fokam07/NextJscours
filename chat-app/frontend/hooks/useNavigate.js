@@ -12,7 +12,7 @@ console.log("useNavigate() executé");
 
     // Redirection vers login si pas connecté
     useEffect(()=> {
-        if (!user && route !== 'login' && route !== 'logout' && route !== 'home') {
+        if (!user && route !== 'login' && route !== 'register' && route !== 'home') {
             setRoute('login');
             setAbr(['login']);
         }
@@ -23,7 +23,7 @@ console.log("useNavigate() executé");
     }, [user]);
 
     const push = (rt, remplace = false) => {
-        if (!user && rt !== 'login' && rt !== 'logout' && rt !== 'home') {
+        if (!user && rt !== 'login' && rt !== 'register' && rt !== 'home') {
             console.log("l'utilisateur n'est pas connecte")
             setRoute('login');
             setAbr(['login']);
