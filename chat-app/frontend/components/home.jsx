@@ -1,7 +1,7 @@
 // app/page.jsx ou components/HomePage.jsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Send, Paperclip, Menu, X } from 'lucide-react';
 import { useNavigate } from '../hooks/useNavigate';
 import { useChat } from '../hooks/useChat';
