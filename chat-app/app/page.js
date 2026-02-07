@@ -51,33 +51,27 @@ export default function Home() {
     push('home', true);
     setCurrentConversationId(null);
   };
-  console.log("la route actuelle ", route)
-  switch (route) {
+
+  if(!user){
+    switch (route) {
     case 'home':
       return <HomePage></HomePage>;
     case 'login':
       console.log("losh sur login");
       return <LoginForm
-        onLogin={(email, password)=>{
-          signIn(email, password).then((success)=>{
-            if(success){
-              push('chat-area', true);
-            }
-          })
-        }}
+        onLogin={signIn}
         onSwitchToRegister={() => push('register')}
       />
     case 'register':
       return <RegisterForm
-        onRegister={(email, password, username)=>{
-          signUp(email, password, username).then((succes)=>{
-            if(succes){
-              push('chat-area', true);
-            }
-          })
-        }}
+        onRegister={signUp}
         onSwitchToLogin={() => push('login')}
       />
+    }
+  }
+  console.log("la route actuelle ", route)
+
+  switch (route) {
     case 'chat-area':
       return (
         <div className="flex h-screen overflow-hidden">
