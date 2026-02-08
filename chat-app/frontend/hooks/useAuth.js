@@ -1,22 +1,42 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/backend/lib/supabase';
-import { useRouter } from 'next/navigation';
+'use client'
 
-export function useAuth() {
+import { useState, useEffect, createContext, useContext } from 'react';
+import { supabase } from '@/backend/lib/supabase';
+
+const authContext = createContext();
+
+export const AuthProvider = ({children}) =>{
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  console.log("use auth est appele");
 
   useEffect(() => {
     // Vérifier la session actuelle
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if(session?.user){
+        const userDb = await findOrCreateUser(user.id, user.email);
+        setUser(userDb??null);
+      }
       setLoading(false);
     });
 
     // Écouter les changements d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        if(session?.user){
+          const userDb = await findOrCreateUser(user.id, user.email);
+          setUser(userDb??null);
+        }else{
+          setUser(null);
+        }
+      } catch (error) {
+        setError(error.message);
+      }
+      finally{
+        setLoading(false);
+        console.log("loading est mis a jour", loading)
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -102,17 +122,16 @@ export function useAuth() {
       });
 
       if (error) {
-        setError(error.message);
-        return false;
+        throw new Error(error);
+        
       }
       console.log("les data supabase", data.user);
       const user =  await findOrCreateUser(data.user.id, data.user.email);
       setUser(user);
-      return true;
     } catch (error) {
       setError(error.message);
-      return false;
     } finally {
+      console.log("loadiing mis a jour");
       setLoading(false);
     }
   };
@@ -136,11 +155,20 @@ export function useAuth() {
     }
   };
 
-  return {
+  return <authContext.Provider value={{
     user,
     loading,
     signUp,
     signIn,
     signOut,
-  };
+    err:error
+  }}>{children}</authContext.Provider>
+}
+
+export function useAuth() {
+  if(authContext){
+    return useContext(authContext);
+  }
+  throw new Error("authContext est null verifier que vous avez ajouter le provider");
+  
 }
