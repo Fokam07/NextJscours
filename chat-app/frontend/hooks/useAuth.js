@@ -15,7 +15,7 @@ export const AuthProvider = ({children}) =>{
     // Vérifier la session actuelle
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if(session?.user){
-        const userDb = await findOrCreateUser(user.id, user.email);
+        const userDb = await findOrCreateUser(session.user.id, session.user.email);
         setUser(userDb??null);
       }
       setLoading(false);
@@ -25,7 +25,7 @@ export const AuthProvider = ({children}) =>{
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       try {
         if(session?.user){
-          const userDb = await findOrCreateUser(user.id, user.email);
+          const userDb = await findOrCreateUser(session.user.id, session.user.email);
           setUser(userDb??null);
         }else{
           setUser(null);

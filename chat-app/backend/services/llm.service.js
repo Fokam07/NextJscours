@@ -224,6 +224,13 @@ Titre: Guide touristique Paris`,
 
     return estimatedTokens < model.maxTokens * 0.8; // Garder 20% de marge
   },
+
+  // async generateCv({offre, poste, exist}) {
+  //   try{
+
+    
+
+  // }
 };
 
 const ai = new GoogleGenAI({});
