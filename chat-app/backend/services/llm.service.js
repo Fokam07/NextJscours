@@ -1,25 +1,23 @@
 /**
- * Service pour interagir avec le LLM le model IA
- * Avec support de génération de titres intelligents
+ * Service pour interagir avec un LLM (Groq ou Gemini)
+ * IMPORTANT: ne jamais faire planter le module au moment de l'import
  */
 
 import { createPartFromUri, createUserContent, GoogleGenAI } from "@google/genai";
-import {z} from 'zod'
-import zodToJsonSchema from "zod-to-json-schema";
 
 export const llmService = {
   /**
-   * Générer une réponse du LLM
-   * @param {Array} messages - Historique des messages [{role, content}]
-   * @param {Array} attachments - Fichiers joints (optionnel)
-   * @returns {Object} - {content, model, tokens}
+   * Générer une réponse via Groq
+   * @param {Array} messages - [{role, content}]
+   * @param {Array} attachments - optionnel
    */
   async generateResponse(messages, attachments = []) {
     try {
-      // Construire le contexte avec les pièces jointes si présentes
+      // ✅ Ne valide la clé QUE quand on appelle la fonction
+      const apiKey = requireEnv("GROQ_API_KEY");
+
       let enrichedMessages = [...messages];
 
-      // Si des images sont attachées, ajouter une note dans le contexte
       if (attachments.length > 0) {
         const fileList = attachments
           .map((att) => `- ${att.name} (${att.type})`)
@@ -37,7 +35,7 @@ export const llmService = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
@@ -49,61 +47,56 @@ export const llmService = {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(
-          `Groq API Error: ${error.error?.message || "Unknown error"}`,
+          `Groq API Error: ${error?.error?.message || response.statusText}`,
         );
       }
 
       const data = await response.json();
 
       return {
-        content: data.choices[0].message.content,
+        content: data.choices?.[0]?.message?.content ?? "",
         model: data.model,
-        tokens: data.usage.total_tokens,
+        tokens: data.usage?.total_tokens ?? 0,
       };
     } catch (error) {
       console.error("Erreur Groq LLM:", error);
-      throw new Error("Erreur lors de la génération de la réponse");
+      // ✅ Message clair côté API route
+      throw new Error(error.message || "Erreur lors de la génération (Groq)");
     }
   },
 
-  /**
-   * Générer un titre intelligent pour une conversation
-   * Basé sur le premier message de l'utilisateur
-   * @param {string} firstMessage - Premier message de la conversation
-   * @returns {string} - Titre généré (max 50 caractères)
-   */
   async generateConversationTitle(firstMessage) {
     try {
-      // Nettoyer et limiter le message
+      const apiKey = requireEnv("GROQ_API_KEY");
       const cleanMessage = firstMessage.trim().substring(0, 300);
 
       const messages = [
         {
           role: "system",
           content: `Tu es un expert en création de titres concis et descriptifs.
-            Règles strictes:
-            - Le titre DOIT faire entre 3 et 6 mots maximum
-            - Le titre DOIT être descriptif et capturer l'essence du sujet
-            - Le titre DOIT être en français
-            - PAS de guillemets, PAS de ponctuation finale
-            - Commence directement par le titre sans préambule
-            - Sois créatif mais précis
+Règles strictes:
+- Le titre DOIT faire entre 3 et 6 mots maximum
+- Le titre DOIT être descriptif et capturer l'essence du sujet
+- Le titre DOIT être en français
+- PAS de guillemets, PAS de ponctuation finale
+- Commence directement par le titre sans préambule
+- Sois créatif mais précis
 
-            Exemples:
-            Message: "Comment faire un gâteau au chocolat?"
-            Titre: Recette gâteau au chocolat
+Exemples:
+Message: "Comment faire un gâteau au chocolat?"
+Titre: Recette gâteau au chocolat
 
-            Message: "J'ai besoin d'aide pour mon code Python qui ne fonctionne pas"
-            Titre: Débogage code Python
+Message: "J'ai besoin d'aide pour mon code Python qui ne fonctionne pas"
+Titre: Débogage code Python
 
-            Message: "Quels sont les meilleurs endroits à visiter à Paris?"
-            Titre: Guide touristique Paris`,
+Message: "Quels sont les meilleurs endroits à visiter à Paris?"
+Titre: Guide touristique Paris`,
         },
         {
           role: "user",
-          content: `Génère un titre court (3-6 mots) pour cette conversation:\n\n"${cleanMessage}"`,
+          content: `Génère un titre court (3-6 mots) pour:\n\n"${cleanMessage}"`,
         },
       ];
 
@@ -113,29 +106,23 @@ export const llmService = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
-            messages: messages,
-            temperature: 0.5, // Moins créatif pour plus de cohérence
+            messages,
+            temperature: 0.5,
             max_tokens: 50,
           }),
         },
       );
 
-      if (!response.ok) {
-        throw new Error("Erreur API Groq");
-      }
+      if (!response.ok) throw new Error("Erreur API Groq (title)");
 
       const data = await response.json();
-      let title = data.choices[0].message.content.trim();
+      let title = (data.choices?.[0]?.message?.content ?? "").trim();
 
-      // Nettoyer le titre
-      title = title
-        .replace(/^["']|["']$/g, "") // Retirer les guillemets
-        .replace(/\.$/, "") // Retirer le point final
-        .substring(0, 50); // Limiter à 50 caractères
+      title = title.replace(/^["']|["']$/g, "").replace(/\.$/, "").substring(0, 50);
 
       return title || this.generateSimpleTitle(firstMessage);
     } catch (error) {
@@ -144,31 +131,15 @@ export const llmService = {
     }
   },
 
-  /**
-   * Générer un titre simple en cas d'échec de l'IA
-   * Basé sur les premiers mots du message
-   * @param {string} message - Message original
-   * @returns {string} - Titre simple
-   */
   generateSimpleTitle(message) {
-    // Nettoyer le message
-    const cleaned = message.trim();
-
-    // Prendre les 5 premiers mots
+    const cleaned = (message ?? "").trim();
     const words = cleaned.split(/\s+/).slice(0, 5);
     let title = words.join(" ");
 
-    // Limiter à 50 caractères
-    if (title.length > 50) {
-      title = title.substring(0, 47) + "...";
-    }
-
+    if (title.length > 50) title = title.substring(0, 47) + "...";
     return title || "Nouvelle conversation";
   },
 
-  /**
-   * Liste des modèles Groq disponibles avec leurs caractéristiques
-   */
   getAvailableModels() {
     return [
       {
@@ -206,83 +177,105 @@ export const llmService = {
     ];
   },
 
-  /**
-   * Estimer le nombre de tokens dans un texte
-   * (Approximation: 1 token ≈ 4 caractères en français)
-   */
   estimateTokens(text) {
-    return Math.ceil(text.length / 4);
+    return Math.ceil((text ?? "").length / 4);
   },
 
-  /**
-   * Vérifier si un modèle peut gérer un contexte donné
-   */
   canHandleContext(modelId, messages) {
     const model = this.getAvailableModels().find((m) => m.id === modelId);
     if (!model) return false;
 
-    const totalText = messages.map((m) => m.content).join(" ");
+    const totalText = (messages ?? []).map((m) => m.content).join(" ");
     const estimatedTokens = this.estimateTokens(totalText);
 
     return estimatedTokens < model.maxTokens * 0.8; // Garder 20% de marge
   },
-
-  
 };
 
 const ai = new GoogleGenAI({});
 const chats = new Map();
 
+/** ✅ Supabase admin (server only) */
+import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import os from "os";
+
+/** Télécharge un fichier depuis Supabase Storage et renvoie un Buffer */
+async function downloadFromStorage(bucket, path) {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  if (error) throw error;
+
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/** Sauvegarde un fichier temporaire sur le disque (temp Windows/Linux) */
+async function saveTempFile(buffer, filename) {
+  const dir = join(os.tmpdir(), "chat-app-uploads");
+  await mkdir(dir, { recursive: true });
+
+  const safeName = String(filename || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const tempPath = join(dir, `${Date.now()}_${crypto.randomUUID()}_${safeName}`);
+
+  await writeFile(tempPath, buffer);
+  return tempPath;
+}
+
 export const llmServicer = {
-  async generateResponse(
-    message,
-    messages,
-    attachments = [],
-    conversationId,
-  ) {
+  async generateResponse(message, messages, attachments = [], conversationId) {
     try {
+      const ai = getGeminiClient();
+
       let chat = chats.get(conversationId);
       if (!chat) {
-        console.log("cha est null", conversationId, chats)
-        const history = [...messages].map((message) => {
-          return {
-            role: message.role === 'assistant' ? 'model' : message.role,
-            parts: [{ text: message.content }],
-          };
-        });
-        chat = ai.chats.create({
-        model: "gemini-2.5-flash",
-        history
-      });
-      chats.set(conversationId, chat);
-      } 
+        const history = [...(messages ?? [])].map((m) => ({
+          role: m.role === "assistant" ? "model" : m.role,
+          parts: [{ text: m.content }],
+        }));
 
-      console.log("attachements", attachments);
+        chat = ai.chats.create({
+          model: "gemini-2.5-flash",
+          history,
+        });
+
+        chats.set(conversationId, chat);
+      }
+
       const attachmentParts = [];
-      for(const at of attachments){
-        const file = await ai.files.upload({file: at.path});
-        if(file.mimeType!=null && file.uri!=null){
+
+      for (const at of attachments) {
+        // ✅ Nouveau format recommandé: { bucket, path, fileName, mimeType, size }
+        // On ne tente Gemini upload que si bucket+path existent
+        if (!at?.bucket || !at?.path) continue;
+
+        // 1) Download depuis Supabase Storage
+        const buffer = await downloadFromStorage(at.bucket, at.path);
+
+        // 2) Sauvegarder en fichier temporaire
+        const tempPath = await saveTempFile(buffer, at.fileName);
+
+        // 3) Upload à Gemini depuis un vrai chemin local temporaire
+        const file = await ai.files.upload({ file: tempPath });
+
+        if (file?.mimeType && file?.uri) {
           attachmentParts.push(createPartFromUri(file.uri, file.mimeType));
         }
       }
-      console.log("part union",[message, ...attachmentParts ] );
+
       const response = await chat.sendMessage({
-        message: createUserContent([message, ...attachmentParts ]) ,
-        config: {
-          temperature: 0.7,
-        },
+        message: createUserContent([message, ...attachmentParts]),
+        config: { temperature: 0.7 },
       });
 
-      console.log("la repose est: ", response);
       return {
-        content: response.text,
-        nodel: response.modelVersion,
-        tokens: response.usageMetadata.totalTokenCount
+        content: response.text ?? "",
+        model: response.modelVersion,
+        tokens: response.usageMetadata?.totalTokenCount ?? 0,
       };
-
     } catch (error) {
-     console.error("Erreur gemini LLM:", error);
-      throw new Error("Erreur lors de la génération de la réponse");
+      console.error("Erreur Gemini LLM:", error);
+      throw new Error(error.message || "Erreur lors de la génération (Gemini)");
     }
   },
 

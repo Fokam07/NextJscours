@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
@@ -14,13 +14,17 @@ import GeneratorPage from '@/frontend/components/cvGenerator';
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const [currentConversationId, setCurrentConversationId] = useState(null);
-  const {pop,push, route} = useNavigate();
+  const { push, route } = useNavigate();
+
   const {
     conversations,
     createConversation,
     deleteConversation,
     refreshConversations,
   } = useConversations(user?.id);
+
+  // ✅ NavigateProvider ya maneja la navegación automática
+  // NO duplicar la lógica aquí para evitar loops infinitos
 
   // Loading state
   if (authLoading && route!=='login' && route!=='register') {
@@ -31,7 +35,6 @@ export default function Home() {
     );
   }
 
-  // Interface principale
   const handleNewConversation = async () => {
     const newConv = await createConversation();
     if (newConv) {
@@ -46,35 +49,37 @@ export default function Home() {
 
   const handleDeleteConversation = async (conversationId) => {
     await deleteConversation(conversationId);
-    if (currentConversationId === conversationId) {
-      setCurrentConversationId(null);
-    }
+    if (currentConversationId === conversationId) setCurrentConversationId(null);
   };
 
   const handleSignOut = async () => {
     await signOut();
-    push('home', true);
     setCurrentConversationId(null);
+    push("home", true);
   };
 
-  if(!user){
+  // ✅ Si pas connecté : routes publiques
+  if (!user) {
     switch (route) {
-    case 'home':
-      return <HomePage></HomePage>;
-    case 'login':
-      console.log("losh sur login");
-      return <LoginForm
-        onLogin={signIn}
-        onSwitchToRegister={() => push('register')}
-      />
-    case 'register':
-      return <RegisterForm
-        onRegister={signUp}
-        onSwitchToLogin={() => push('login')}
-      />
+      case "login":
+        return (
+          <LoginForm
+            onLogin={signIn}
+            onSwitchToRegister={() => push("register")}
+          />
+        );
+      case "register":
+        return (
+          <RegisterForm
+            onRegister={signUp}
+            onSwitchToLogin={() => push("login")}
+          />
+        );
+      case "home":
+      default:
+        return <HomePage />;
     }
   }
-  console.log("la route actuelle ", route)
 
   return (
     <div className="flex h-screen overflow-hidden">

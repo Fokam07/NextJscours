@@ -1,6 +1,9 @@
 // registerform-responsive.js
-import { useEffect, useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+"use client";
+
+import { useState } from 'react';
+import { useAuth } from "../hooks/useAuth";
+import { createSupabaseBrowserClient } from "@/backend/lib/supabaseClient";
 
 export default function RegisterForm({ onRegister, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
@@ -12,6 +15,8 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
   const {err, loading :isLoading} = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(null); // "google" | null
+  const [socialError, setSocialError] = useState(null);
 
   const handleChange = (e) => {
     setFormData(prev => ({
@@ -20,16 +25,34 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
     }));
   };
 
-  useEffect(()=>{
-    if(formData.email !=='' && formData.password != ''){
-        setError(err);
-      }
-      setLoading(isLoading);
-  }, [err,isLoading])
+  const handleSocialLogin = async (provider) => {
+    try {
+      setSocialError(null);
+      setSocialLoading(provider);
+
+      const supabase = createSupabaseBrowserClient();
+      const origin = window.location.origin;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider, // "google"
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      setSocialError(err?.message || "Erreur connexion sociale");
+      setSocialLoading(null);
+    }
+  };
+
+  const isAnyLoading = loading || !!socialLoading;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSocialError(null);
 
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
@@ -73,6 +96,42 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+          {/* ✅ Social buttons */}
+          <div className="space-y-3 mb-5 sm:mb-6">
+            {socialError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm">
+                {socialError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleSocialLogin("google")}
+              disabled={isAnyLoading}
+              className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 py-2.5 sm:py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base shadow-sm"
+            >
+              {socialLoading === "google" ? (
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <span className="w-5 h-5 flex items-center justify-center font-bold text-gray-700">
+                  G
+                </span>
+              )}
+              Continuer avec Google
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px bg-gray-200 flex-1" />
+              <span className="text-xs sm:text-sm text-gray-500">ou</span>
+              <div className="h-px bg-gray-200 flex-1" />
+            </div>
+          </div>
+
+          {/* ✅ Email/Password form */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm">
               {error}
@@ -91,6 +150,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="john_doe"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
@@ -106,6 +166,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="votre@email.com"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
@@ -121,6 +182,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="••••••••"
               required
+              disabled={isAnyLoading}
             />
             <p className="text-xs text-gray-500 mt-1">Au moins 6 caractères</p>
           </div>
@@ -137,12 +199,13 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               placeholder="••••••••"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isAnyLoading}
             className="w-full bg-purple-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm sm:text-base shadow-lg hover:shadow-xl active:scale-[0.98]"
           >
             {loading ? (
