@@ -3,13 +3,16 @@ import prisma from '../lib/prisma.js';
 export const conversationService = {
   /**
    * Créer une nouvelle conversation
+   * @param {string} userId - ID de l'utilisateur
+   * @param {string} title - Titre de la conversation
+   * @param {string|null} roleId - ID du rôle à utiliser (optionnel)
    */
-  async createConversation(userId, title = 'Nouvelle conversation') {
-    
+  async createConversation(userId, title = 'Nouvelle conversation', roleId = null) {
     return await prisma.conversation.create({
       data: {
         title,
         userId,
+        roleId, // Support du rôle personnalisé
       },
       include: {
         messages: true,
@@ -35,12 +38,13 @@ export const conversationService = {
 
   /**
    * Récupérer une conversation par ID
+   * Retourne la conversation avec son roleId
    */
   async getConversationById(conversationId, userId) {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        userId, // Vérifier que l'utilisateur possède cette conversation
+        userId,
       },
       include: {
         messages: {
@@ -70,6 +74,22 @@ export const conversationService = {
   },
 
   /**
+   * Mettre à jour le rôle d'une conversation
+   * @param {string} conversationId - ID de la conversation
+   * @param {string} userId - ID de l'utilisateur
+   * @param {string|null} roleId - ID du nouveau rôle (ou null pour désactiver)
+   */
+  async updateConversationRole(conversationId, userId, roleId) {
+    return await prisma.conversation.update({
+      where: {
+        id: conversationId,
+        userId,
+      },
+      data: { roleId },
+    });
+  },
+
+  /**
    * Supprimer une conversation
    */
   async deleteConversation(conversationId, userId) {
@@ -90,4 +110,21 @@ export const conversationService = {
       data: { updatedAt: new Date() },
     });
   },
-};  
+
+  /**
+   * Récupérer le rôle d'une conversation
+   */
+  async getConversationRole(conversationId, userId) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        userId,
+      },
+      select: {
+        roleId: true,
+      },
+    });
+
+    return conversation?.roleId || null;
+  },
+};
