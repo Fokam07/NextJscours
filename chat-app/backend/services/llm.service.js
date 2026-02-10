@@ -222,6 +222,13 @@ Titre: Guide touristique Paris`,
 
     return estimatedTokens < model.maxTokens * 0.8;
   },
+
+  // async generateCv({offre, poste, exist}) {
+  //   try{
+
+    
+
+  // }
 };
 
 // ==================== GEMINI SERVICE ====================

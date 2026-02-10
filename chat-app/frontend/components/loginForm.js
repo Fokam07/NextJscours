@@ -1,16 +1,24 @@
 // loginForm-responsive.js
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const {error} = useAuth();
+  const [error, setError] = useState(null);
+  const {loading: isLoading, err} = useAuth();
+
+    useEffect(()=>{
+      if(email!=='' && password != ''){
+        setError(err);
+      }
+      setLoading(isLoading);
+    }, [err,isLoading])
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
     const success = await onLogin(email, password);
     if (!success) {

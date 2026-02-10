@@ -1,5 +1,6 @@
 // registerform-responsive.js
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 export default function RegisterForm({ onRegister, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
@@ -8,6 +9,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
     password: '',
     confirmPassword: '',
   });
+  const {err, loading :isLoading} = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,6 +19,13 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
       [e.target.name]: e.target.value,
     }));
   };
+
+  useEffect(()=>{
+    if(formData.email !=='' && formData.password != ''){
+        setError(err);
+      }
+      setLoading(isLoading);
+  }, [err,isLoading])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
