@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '../../backend/lib/supabase';
 
 const EMOJI_OPTIONS = ['🤖', '💻', '💪', '📚', '✈️', '👨‍🍳', '🧠', '💼', '🎨', '🎮', '⚽', '🎵', '📊', '🔬', '🏴‍☠️', '🧙‍♂️', '👑', '🦸‍♂️'];
 const CATEGORY_OPTIONS = [
@@ -29,7 +30,6 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
   const [isSaving, setIsSaving] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Pré-remplir le formulaire si on édite un rôle
   useEffect(() => {
     if (roleToEdit) {
       setFormData({
@@ -41,7 +41,6 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
         visibility: roleToEdit.visibility || 'private',
       });
     } else {
-      // Réinitialiser pour une nouvelle création
       setFormData({
         name: '',
         system_prompt: '',
@@ -81,24 +80,59 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
 
     setIsSaving(true);
     try {
-      const url = roleToEdit ? `/api/roles/${roleToEdit.id}` : '/api/roles';
-      const method = roleToEdit ? 'PUT' : 'POST';
+      // Récupérer l'utilisateur authentifié
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setErrors({ submit: 'Vous devez être connecté pour créer un rôle' });
+        setIsSaving(false);
+        return;
+      }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        onSave(data.role);
-        onClose();
+      let result;
+      
+      if (roleToEdit) {
+        // Mise à jour d'un rôle existant
+        result = await supabase
+          .from('roles')
+          .update({
+            name: formData.name,
+            system_prompt: formData.system_prompt,
+            description: formData.description,
+            icon: formData.icon,
+            category: formData.category,
+            visibility: formData.visibility,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', roleToEdit.id)
+          .select()
+          .single();
       } else {
-        const errorData = await response.json();
-        setErrors({ submit: errorData.error || 'Erreur lors de la sauvegarde' });
+        // Création d'un nouveau rôle - UTILISE VOS COLONNES EXACTES
+        result = await supabase
+          .from('roles')
+          .insert([{
+            name: formData.name,
+            system_prompt: formData.system_prompt,
+            description: formData.description,
+            icon: formData.icon,
+            category: formData.category,
+            userid: user.id,              // ← votre colonne
+            visibility: formData.visibility,
+            is_active: true,               // ← votre colonne
+            usage_count: 0,                // ← votre colonne
+            // created_at et updated_at sont auto-générés par Supabase
+          }])
+          .select()
+          .single();
+      }
+
+      if (result.error) {
+        console.error('Erreur Supabase:', result.error);
+        setErrors({ submit: result.error.message || 'Erreur lors de la sauvegarde' });
+      } else {
+        onSave(result.data);
+        onClose();
       }
     } catch (error) {
       console.error('Erreur sauvegarde rôle:', error);
@@ -110,7 +144,6 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Effacer l'erreur du champ modifié
     if (errors[field]) {
       setErrors(prev => {
         const newErrors = { ...prev };
