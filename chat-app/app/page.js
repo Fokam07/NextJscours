@@ -9,10 +9,10 @@ import Sidebar from '@/frontend/components/sideBar';
 import ChatArea from '@/frontend/components/chatArea';
 import { useNavigate } from '@/frontend/hooks/useNavigate';
 import HomePage from '@/frontend/components/home';
+import GeneratorPage from '@/frontend/components/cvGenerator';
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const {pop,push, route} = useNavigate();
   const {
@@ -35,9 +35,14 @@ export default function Home() {
   const handleNewConversation = async () => {
     const newConv = await createConversation();
     if (newConv) {
-      setCurrentConversationId(newConv.id);
+      handleSelectConverstion(newConv.id);
     }
   };
+
+  const handleSelectConverstion = (conversationId) =>{
+    setCurrentConversationId(conversationId);
+    push('chat-area');
+  }
 
   const handleDeleteConversation = async (conversationId) => {
     await deleteConversation(conversationId);
@@ -71,24 +76,24 @@ export default function Home() {
   }
   console.log("la route actuelle ", route)
 
-  switch (route) {
-    case 'chat-area':
-      return (
-        <div className="flex h-screen overflow-hidden">
+  return (
+    <div className="flex h-screen overflow-hidden">
           <Sidebar
             conversations={conversations}
             currentConversationId={currentConversationId}
-            onSelectConversation={setCurrentConversationId}
+            onSelectConversation={handleSelectConverstion}
             onNewConversation={handleNewConversation}
             onDeleteConversation={handleDeleteConversation}
             onSignOut={handleSignOut}
             user={user}
           />
-          <ChatArea conversationId={currentConversationId} userId={user?.id} />
-        </div>
-      );
-    default:
-      console.log("ca ne sert a rien")
-      break;
-  }
+          {
+            route === 'chat-area' ?
+              <ChatArea conversationId={currentConversationId} userId={user?.id} />:
+            route ==='cv-builder'?
+              <GeneratorPage user={user} ></GeneratorPage>:
+              <div></div>
+          }
+    </div>
+  );
 }

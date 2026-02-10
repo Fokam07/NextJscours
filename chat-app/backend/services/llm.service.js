@@ -4,6 +4,8 @@
  */
 
 import { createPartFromUri, createUserContent, GoogleGenAI } from "@google/genai";
+import {z} from 'zod'
+import zodToJsonSchema from "zod-to-json-schema";
 
 export const llmService = {
   /**
@@ -81,23 +83,23 @@ export const llmService = {
         {
           role: "system",
           content: `Tu es un expert en création de titres concis et descriptifs.
-Règles strictes:
-- Le titre DOIT faire entre 3 et 6 mots maximum
-- Le titre DOIT être descriptif et capturer l'essence du sujet
-- Le titre DOIT être en français
-- PAS de guillemets, PAS de ponctuation finale
-- Commence directement par le titre sans préambule
-- Sois créatif mais précis
+            Règles strictes:
+            - Le titre DOIT faire entre 3 et 6 mots maximum
+            - Le titre DOIT être descriptif et capturer l'essence du sujet
+            - Le titre DOIT être en français
+            - PAS de guillemets, PAS de ponctuation finale
+            - Commence directement par le titre sans préambule
+            - Sois créatif mais précis
 
-Exemples:
-Message: "Comment faire un gâteau au chocolat?"
-Titre: Recette gâteau au chocolat
+            Exemples:
+            Message: "Comment faire un gâteau au chocolat?"
+            Titre: Recette gâteau au chocolat
 
-Message: "J'ai besoin d'aide pour mon code Python qui ne fonctionne pas"
-Titre: Débogage code Python
+            Message: "J'ai besoin d'aide pour mon code Python qui ne fonctionne pas"
+            Titre: Débogage code Python
 
-Message: "Quels sont les meilleurs endroits à visiter à Paris?"
-Titre: Guide touristique Paris`,
+            Message: "Quels sont les meilleurs endroits à visiter à Paris?"
+            Titre: Guide touristique Paris`,
         },
         {
           role: "user",
@@ -225,12 +227,7 @@ Titre: Guide touristique Paris`,
     return estimatedTokens < model.maxTokens * 0.8; // Garder 20% de marge
   },
 
-  // async generateCv({offre, poste, exist}) {
-  //   try{
-
-    
-
-  // }
+  
 };
 
 const ai = new GoogleGenAI({});
@@ -288,7 +285,53 @@ export const llmServicer = {
       throw new Error("Erreur lors de la génération de la réponse");
     }
   },
+
+  
+
+
+  async generateCv({offre, poste, instructions, existing}) {
+
+    try {
+      var exisingPart = null;
+
+      
+      if(existing !== null){
+        const file = await ai.files.upload({file: existing.path});
+        if(file.mimeType!=null && file.uri!=null){
+          exisingPart =createPartFromUri(file.uri, file.mimeType);
+        }
+      }
+      console.log("le cv existant est",exisingPart)
+      
+
+      const response = await ai.models.generateContent({
+        model:'gemini-2.5-flash', 
+        config: {
+          temperature: 0.7,
+          systemInstruction: instructions,
+          responseMimeType:'application/json',
+        },
+        contents: [
+          createUserContent([
+            `voici les informations a prendre en compte l'intitule du poste est ${poste} et l'offre est : ${offre} et le cv existant en piece jointe `,
+            ...(exisingPart ? [exisingPart] : [])
+          ])
+        ]
+      });
+
+      return JSON.parse(response.text);
+      
+    } catch (error) {
+      console.log("erreur gemini cv: ", error);
+        throw new Error("erreur de la generation du cv")
+    }
+
+  }
 };
+
+
+
+
 
 
 

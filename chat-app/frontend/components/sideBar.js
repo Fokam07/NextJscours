@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useNavigate } from '../hooks/useNavigate';
 
 export default function Sidebar({
   conversations,
@@ -16,6 +17,7 @@ export default function Sidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const {push} = useNavigate();
 
   const handleDelete = (conversationId) => {
     onDeleteConversation(conversationId);
@@ -201,6 +203,19 @@ export default function Sidebar({
         </div>
 
         <button
+          onClick={()=>{push('cv-builder')}}
+          className={`w-full mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02] ${
+            !isExpanded && !isPinned ? 'px-0' : 'px-4'
+          }`}
+          title={!isExpanded && !isPinned ? 'generer un cv' : ''}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {(isExpanded || isPinned) && <span>Generer un CV</span>}
+        </button>
+
+        <button
           onClick={onNewConversation}
           className={`w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02] ${
             !isExpanded && !isPinned ? 'px-0' : 'px-4'
@@ -314,7 +329,7 @@ export default function Sidebar({
             {(isExpanded || isPinned) && (
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate text-sm">
-                  {user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur'}
+                  {user?.username || 'Utilisateur'}
                 </p>
                 <p className="text-xs text-gray-400 truncate">{user?.email}</p>
               </div>

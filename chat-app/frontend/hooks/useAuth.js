@@ -25,8 +25,10 @@ export const AuthProvider = ({children}) =>{
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       try {
         if(session?.user){
+          if( user && session.user.id!=user.id){
           const userDb = await findOrCreateUser(session.user.id, session.user.email);
           setUser(userDb??null);
+        }
         }else{
           setUser(null);
         }
