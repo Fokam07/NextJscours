@@ -73,65 +73,47 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+
+    if (!validateForm()) return;
 
     setIsSaving(true);
     try {
-      // Récupérer l'utilisateur authentifié
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
+      // Récupérer l'utilisateur via Supabase auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
         setErrors({ submit: 'Vous devez être connecté pour créer un rôle' });
-        setIsSaving(false);
         return;
       }
 
-      let result;
-      
-      if (roleToEdit) {
-        // Mise à jour d'un rôle existant
-        result = await supabase
-          .from('roles')
-          .update({
-            name: formData.name,
-            system_prompt: formData.system_prompt,
-            description: formData.description,
-            icon: formData.icon,
-            category: formData.category,
-            visibility: formData.visibility,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', roleToEdit.id)
-          .select()
-          .single();
-      } else {
-        // Création d'un nouveau rôle - UTILISE VOS COLONNES EXACTES
-        result = await supabase
-          .from('roles')
-          .insert([{
-            name: formData.name,
-            system_prompt: formData.system_prompt,
-            description: formData.description,
-            icon: formData.icon,
-            category: formData.category,
-            userid: user.id,              // ← votre colonne
-            visibility: formData.visibility,
-            is_active: true,               // ← votre colonne
-            usage_count: 0,                // ← votre colonne
-            // created_at et updated_at sont auto-générés par Supabase
-          }])
-          .select()
-          .single();
-      }
+      // CORRECTION : passer par l'API Next.js (pas Supabase direct)
+      // Cela garantit que roleService enregistre bien userid et is_active
+      const url = roleToEdit ? `/api/roles/${roleToEdit.id}` : '/api/roles';
+      const method = roleToEdit ? 'PUT' : 'POST';
 
-      if (result.error) {
-        console.error('Erreur Supabase:', result.error);
-        setErrors({ submit: result.error.message || 'Erreur lors de la sauvegarde' });
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          system_prompt: formData.system_prompt,
+          description: formData.description,
+          icon: formData.icon,
+          category: formData.category,
+          visibility: formData.visibility,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Erreur API roles:', data);
+        setErrors({ submit: data.error || 'Erreur lors de la sauvegarde' });
       } else {
-        onSave(result.data);
+        onSave(data.role);
         onClose();
       }
     } catch (error) {
@@ -156,20 +138,20 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <div className="bg-[#0c1220] rounded-2xl shadow-2xl shadow-black/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/[0.08] custom-scrollbar ring-1 ring-white/[0.04]">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-600 p-6 rounded-t-2xl">
+        <div className="sticky top-0 bg-gradient-to-r from-cyan-600/90 to-blue-600/90 p-6 rounded-t-2xl backdrop-blur-sm border-b border-white/10 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <span className="text-3xl">{formData.icon}</span>
+            <h2 className="text-xl font-bold text-white flex items-center gap-3 tracking-tight">
+              <span className="text-2xl w-10 h-10 flex items-center justify-center bg-white/15 rounded-xl ring-1 ring-white/20">{formData.icon}</span>
               {roleToEdit ? 'Modifier le rôle' : 'Créer un nouveau rôle'}
             </h2>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+              className="text-white/70 hover:text-white transition-all duration-200 p-2 hover:bg-white/10 rounded-xl"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -180,19 +162,19 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Icône */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2.5 uppercase tracking-wider">
               Icône du rôle
             </label>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-16 h-16 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center justify-center text-4xl transition-colors border-2 border-gray-700 hover:border-purple-500"
+                className="w-14 h-14 bg-white/[0.04] hover:bg-white/[0.08] rounded-xl flex items-center justify-center text-3xl transition-all duration-300 border border-white/[0.08] hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] ring-1 ring-white/[0.03]"
               >
                 {formData.icon}
               </button>
               {showEmojiPicker && (
-                <div className="flex flex-wrap gap-2 flex-1 p-3 bg-gray-800 rounded-xl border border-gray-700">
+                <div className="flex flex-wrap gap-1.5 flex-1 p-3 bg-white/[0.03] rounded-xl border border-white/[0.08]">
                   {EMOJI_OPTIONS.map(emoji => (
                     <button
                       key={emoji}
@@ -201,7 +183,7 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
                         handleChange('icon', emoji);
                         setShowEmojiPicker(false);
                       }}
-                      className="w-10 h-10 hover:bg-gray-700 rounded-lg flex items-center justify-center text-2xl transition-colors"
+                      className="w-9 h-9 hover:bg-white/[0.08] rounded-lg flex items-center justify-center text-xl transition-all duration-200 hover:scale-110"
                     >
                       {emoji}
                     </button>
@@ -213,7 +195,7 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
 
           {/* Nom */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
               Nom du rôle *
             </label>
             <input
@@ -221,22 +203,22 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Ex: Expert en Python"
-              className={`w-full bg-gray-800 text-white px-4 py-3 rounded-xl border ${
-                errors.name ? 'border-red-500' : 'border-gray-700'
-              } focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all`}
+              className={`w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border ${
+                errors.name ? 'border-red-500/40' : 'border-white/[0.08]'
+              } focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 text-sm placeholder:text-gray-600`}
               maxLength={100}
             />
             {errors.name && (
-              <p className="text-red-400 text-sm mt-1">{errors.name}</p>
+              <p className="text-red-400 text-xs mt-1.5 font-medium">{errors.name}</p>
             )}
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="text-gray-600 text-[11px] mt-1.5 font-medium">
               {formData.name.length}/100 caractères
             </p>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
               Description (optionnel)
             </label>
             <input
@@ -244,22 +226,22 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Ex: Spécialisé en développement Python et frameworks web"
-              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all"
+              className="w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border border-white/[0.08] focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 text-sm placeholder:text-gray-600"
             />
           </div>
 
           {/* Catégorie */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
               Catégorie
             </label>
             <select
               value={formData.category}
               onChange={(e) => handleChange('category', e.target.value)}
-              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all cursor-pointer"
+              className="w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border border-white/[0.08] focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 cursor-pointer text-sm"
             >
               {CATEGORY_OPTIONS.map(cat => (
-                <option key={cat.value} value={cat.value}>
+                <option key={cat.value} value={cat.value} className="bg-[#0c1220] text-gray-200">
                   {cat.label}
                 </option>
               ))}
@@ -268,100 +250,105 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
 
           {/* System Prompt */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
               Prompt système * 
-              <span className="text-gray-500 text-xs ml-2">(Définit le comportement de l'IA)</span>
+              <span className="text-gray-600 normal-case tracking-normal font-normal ml-2">(Définit le comportement de l'IA)</span>
             </label>
             <textarea
               value={formData.system_prompt}
               onChange={(e) => handleChange('system_prompt', e.target.value)}
               placeholder="Ex: Tu es un expert en programmation Python avec plus de 10 ans d'expérience. Tu fournis du code propre, bien commenté et tu expliques tes solutions de manière pédagogique..."
               rows={8}
-              className={`w-full bg-gray-800 text-white px-4 py-3 rounded-xl border ${
-                errors.system_prompt ? 'border-red-500' : 'border-gray-700'
-              } focus:border-purple-500 focus:ring-2 focus:ring-purple-500/50 focus:outline-none transition-all resize-none font-mono text-sm`}
+              className={`w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border ${
+                errors.system_prompt ? 'border-red-500/40' : 'border-white/[0.08]'
+              } focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 resize-none font-mono text-sm placeholder:text-gray-600 leading-relaxed`}
             />
             {errors.system_prompt && (
-              <p className="text-red-400 text-sm mt-1">{errors.system_prompt}</p>
+              <p className="text-red-400 text-xs mt-1.5 font-medium">{errors.system_prompt}</p>
             )}
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="text-gray-600 text-[11px] mt-1.5 font-medium">
               Ce texte définit la personnalité et le comportement de l'IA. Soyez précis et détaillé.
             </p>
           </div>
 
           {/* Visibilité */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-xs font-semibold text-gray-400 mb-2.5 uppercase tracking-wider">
               Visibilité
             </label>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => handleChange('visibility', 'private')}
-                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
+                className={`flex-1 py-3.5 px-4 rounded-xl border-2 transition-all duration-300 ${
                   formData.visibility === 'private'
-                    ? 'border-purple-500 bg-purple-500/20 text-white'
-                    : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                    : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:border-white/[0.12] hover:text-gray-300'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  <span className="font-medium">Privé</span>
+                  <span className="font-medium text-sm">Privé</span>
                 </div>
-                <p className="text-xs mt-1">Visible uniquement par vous</p>
+                <p className="text-[11px] mt-1.5 opacity-60 font-medium">Visible uniquement par vous</p>
               </button>
               
               <button
                 type="button"
                 onClick={() => handleChange('visibility', 'shared')}
-                className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
+                className={`flex-1 py-3.5 px-4 rounded-xl border-2 transition-all duration-300 ${
                   formData.visibility === 'shared'
-                    ? 'border-purple-500 bg-purple-500/20 text-white'
-                    : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                    : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:border-white/[0.12] hover:text-gray-300'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <span className="font-medium">Partageable</span>
+                  <span className="font-medium text-sm">Partageable</span>
                 </div>
-                <p className="text-xs mt-1">Peut être partagé avec d'autres</p>
+                <p className="text-[11px] mt-1.5 opacity-60 font-medium">Peut être partagé avec d'autres</p>
               </button>
             </div>
           </div>
 
           {/* Erreur globale */}
           {errors.submit && (
-            <div className="bg-red-500/10 border border-red-500 rounded-xl p-4">
-              <p className="text-red-400 text-sm">{errors.submit}</p>
+            <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-4">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <p className="text-red-400 text-sm font-medium">{errors.submit}</p>
+              </div>
             </div>
           )}
 
           {/* Boutons d'action */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 px-6 rounded-xl transition-colors font-medium border border-gray-700"
+              className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 py-3 px-6 rounded-xl transition-all duration-300 font-medium border border-white/[0.08] hover:border-white/[0.12] text-sm"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white py-3 px-6 rounded-xl transition-all duration-300 font-medium shadow-lg shadow-cyan-500/15 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
             >
               {isSaving ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <span>Sauvegarde...</span>
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span>{roleToEdit ? 'Mettre à jour' : 'Créer le rôle'}</span>
@@ -370,6 +357,13 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
             </button>
           </div>
         </form>
+
+        <style jsx>{`
+          .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6,182,212,0.08); border-radius: 20px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(6,182,212,0.15); }
+        `}</style>
       </div>
     </div>
   );

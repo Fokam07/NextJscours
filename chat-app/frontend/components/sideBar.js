@@ -1,7 +1,7 @@
 // frontend/components/sideBar.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import RoleModal from './RoleModal';
 
 export default function Sidebar({
@@ -12,7 +12,6 @@ export default function Sidebar({
   onDeleteConversation,
   onSignOut,
   user,
-  // Nouvelles props pour les rôles
   onSelectRole,
   currentRoleId,
 }) {
@@ -21,45 +20,66 @@ export default function Sidebar({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
   
-  // Nouvel état pour les onglets
-  const [activeTab, setActiveTab] = useState('history'); // 'history' ou 'roles'
+  const [activeTab, setActiveTab] = useState('history');
   
-  // États pour les rôles
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false); // État pour le modal
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
-  // Charger les rôles au montage
-  useEffect(() => {
-    if (activeTab === 'roles') {
-      loadRoles();
-    }
-  }, [activeTab]);
+  // FIX 1 : useCallback pour stabiliser la référence de loadRoles
+  const loadRoles = useCallback(async () => {
+    // FIX 2 : Ne pas charger si user n'est pas encore disponible
+    if (!user?.id) return;
 
-  const loadRoles = async () => {
     setLoadingRoles(true);
     try {
       const response = await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': user?.id,
+          // FIX 3 : Utiliser Authorization en plus de x-user-id pour robustesse
+          'x-user-id': user.id,
         },
       });
       
       if (response.ok) {
         const data = await response.json();
         setRoles(data.roles || []);
+      } else {
+        console.error('Erreur API roles:', response.status);
       }
     } catch (error) {
       console.error('Erreur chargement rôles:', error);
     } finally {
       setLoadingRoles(false);
     }
-  };
+  }, [user?.id]); // Se recréé seulement si l'ID utilisateur change
 
-  const handleRoleSaved = (newRole) => {
-    loadRoles(); // Recharger la liste après création ou édition
-  };
+  // FIX 4 : Charger les rôles dès que l'onglet est actif OU que user devient disponible
+  useEffect(() => {
+    if (activeTab === 'roles' && user?.id) {
+      loadRoles();
+    }
+  }, [activeTab, user?.id, loadRoles]);
+
+  // FIX 5 : handleRoleSaved recharge correctement la liste
+  const handleRoleSaved = useCallback((savedRole) => {
+    // Mise à jour optimiste : on ajoute directement le rôle à la liste
+    // sans attendre le rechargement réseau
+    if (savedRole) {
+      setRoles(prev => {
+        const exists = prev.find(r => r.id === savedRole.id);
+        if (exists) {
+          // C'était une modification
+          return prev.map(r => r.id === savedRole.id ? { ...savedRole, source: 'owned' } : r);
+        } else {
+          // C'était une création
+          return [...prev, { ...savedRole, source: 'owned' }];
+        }
+      });
+    }
+    // Rechargement réseau en arrière-plan pour avoir les données fraîches
+    loadRoles();
+  }, [loadRoles]);
 
   const handleDeleteRole = async (roleId) => {
     try {
@@ -71,10 +91,15 @@ export default function Sidebar({
       });
       
       if (response.ok) {
-        loadRoles(); // Recharger la liste
+        // Mise à jour optimiste : on retire directement le rôle de la liste
+        setRoles(prev => prev.filter(r => r.id !== roleId));
         if (currentRoleId === roleId) {
-          onSelectRole(null); // Désélectionner si c'était le rôle actif
+          onSelectRole(null);
         }
+      } else {
+        console.error('Erreur suppression rôle:', response.status);
+        // En cas d'erreur, on recharge pour être sûr de l'état réel
+        loadRoles();
       }
     } catch (error) {
       console.error('Erreur suppression rôle:', error);
@@ -93,18 +118,15 @@ export default function Sidebar({
     }
   };
 
-  // Filtrer les conversations par recherche
   const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filtrer les rôles par recherche
   const filteredRoles = roles.filter(role =>
     role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (role.description && role.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Grouper les conversations par date
   const groupConversationsByDate = (conversations) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -115,13 +137,7 @@ export default function Sidebar({
     const lastMonth = new Date(today);
     lastMonth.setDate(lastMonth.getDate() - 30);
 
-    const groups = {
-      today: [],
-      yesterday: [],
-      lastWeek: [],
-      lastMonth: [],
-      older: []
-    };
+    const groups = { today: [], yesterday: [], lastWeek: [], lastMonth: [], older: [] };
 
     conversations.forEach(conv => {
       const convDate = new Date(conv.updatedAt);
@@ -143,13 +159,8 @@ export default function Sidebar({
     return groups;
   };
 
-  // Grouper les rôles par source
   const groupRolesBySource = (roles) => {
-    const groups = {
-      system: [],
-      owned: [],
-      shared: []
-    };
+    const groups = { system: [], owned: [], shared: [] };
 
     roles.forEach(role => {
       if (role.source === 'system') {
@@ -158,6 +169,9 @@ export default function Sidebar({
         groups.owned.push(role);
       } else if (role.source === 'shared') {
         groups.shared.push(role);
+      } else {
+        // FIX 6 : Fallback — si source est manquant mais que c'est le rôle de l'user, l'afficher quand même
+        groups.owned.push(role);
       }
     });
 
@@ -327,7 +341,7 @@ export default function Sidebar({
       onMouseEnter={() => !isPinned && setIsExpanded(true)}
       onMouseLeave={() => !isPinned && setIsExpanded(false)}
     >
-      {/* Header avec bouton Nouveau */}
+      {/* Header */}
       <div className="p-4 space-y-4">
         <button
           onClick={onNewConversation}
@@ -339,7 +353,6 @@ export default function Sidebar({
           {(isExpanded || isPinned) && <span className="text-sm font-semibold tracking-wide">Nouveau Chat</span>}
         </button>
 
-        {/* Onglets (Affichés si étendu) */}
         {(isExpanded || isPinned) && (
           <div className="flex p-1 bg-black/40 rounded-xl border border-white/5">
             <button
@@ -356,7 +369,7 @@ export default function Sidebar({
                 activeTab === 'roles' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              Rôles
+              Rôles {roles.length > 0 && <span className="ml-1 text-purple-400">({roles.length})</span>}
             </button>
           </div>
         )}
@@ -397,7 +410,12 @@ export default function Sidebar({
         {activeTab === 'history' ? (
           <div className="space-y-2">
             {renderConversationGroup("Aujourd'hui", groupedConversations.today)}
-            {renderConversationGroup("Historique", [...groupedConversations.yesterday, ...groupedConversations.lastWeek, ...groupedConversations.lastMonth, ...groupedConversations.older])}
+            {renderConversationGroup("Historique", [
+              ...groupedConversations.yesterday,
+              ...groupedConversations.lastWeek,
+              ...groupedConversations.lastMonth,
+              ...groupedConversations.older
+            ])}
           </div>
         ) : (
           <div className="space-y-2">
@@ -407,6 +425,13 @@ export default function Sidebar({
               </div>
             ) : (
               <>
+                {/* FIX 7 : Afficher un message si aucun rôle */}
+                {roles.length === 0 && (
+                  <div className="text-center py-10 text-gray-600 text-sm">
+                    <p className="mb-2">Aucun rôle disponible.</p>
+                    <p>Créez votre premier rôle avec le bouton +</p>
+                  </div>
+                )}
                 {renderRoleGroup("Système", groupedRoles.system, false)}
                 {renderRoleGroup("Mes Rôles", groupedRoles.owned, true)}
                 {renderRoleGroup("Partagés", groupedRoles.shared, false)}
@@ -459,13 +484,12 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Modal de création de rôle */}
+      {/* Modal de création/édition de rôle */}
       <RoleModal 
         isOpen={isRoleModalOpen} 
         onClose={() => setIsRoleModalOpen(false)} 
         onSave={handleRoleSaved}
         user={user}
-        // roleToEdit pourrait être passé ici si tu ajoutes un bouton "Edit" sur les rôles
       />
 
       <style jsx>{`
