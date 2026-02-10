@@ -11,17 +11,26 @@ export const roleService = {
    * (ses propres rôles + rôles partagés avec lui + rôles système)
    */
   async getRolesByUser(userId) {
-    if (!userId) return [];
+    if (!userId) {
+      console.warn('[RoleService] getRolesByUser appelé sans userId !');
+      return [];
+    }
+    console.log('[RoleService] getRolesByUser pour userId:', userId);
 
     try {
       // 1. Récupérer les rôles possédés par l'utilisateur
+      // NOTE: pas de filtre is_active ici — on montre tous les rôles de l'user
       const { data: ownedRoles, error: err1 } = await supabase
         .from('roles')
         .select('*')
         .eq('userid', userId)
         .order('created_at', { ascending: false });
 
-      if (err1) throw err1;
+      if (err1) {
+        console.error('[RoleService] Erreur lecture rôles possédés:', err1);
+        throw err1;
+      }
+      console.log('[RoleService] Rôles possédés trouvés:', ownedRoles?.length ?? 0, 'pour userId:', userId);
 
       // 2. Récupérer les rôles partagés avec l'utilisateur
       const { data: sharedRoles, error: err2 } = await supabase
@@ -168,24 +177,32 @@ export const roleService = {
    * Créer un nouveau rôle personnalisé
    */
   async createRole(userId, { name, system_prompt, description = '', icon = '🤖', category = 'custom', visibility = 'private' }) {
+    console.log('[RoleService] createRole pour userId:', userId, '| nom:', name);
     try {
+      const insertData = {
+        userid: userId,
+        name,
+        system_prompt,
+        description,
+        icon,
+        category,
+        visibility,
+        is_active: true,
+        usage_count: 0,
+      };
+      console.log('[RoleService] Données insérées:', insertData);
+
       const { data, error } = await supabase
         .from('roles')
-        .insert({
-          userid: userId,
-          name,
-          system_prompt,
-          description,
-          icon,
-          category,
-          visibility,
-          is_active: true,
-          usage_count: 0,
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[RoleService] Erreur Supabase insert:', error);
+        throw error;
+      }
+      console.log('[RoleService] Rôle créé avec succès, id:', data?.id);
       return data;
     } catch (error) {
       console.error('[RoleService] Erreur createRole:', error);

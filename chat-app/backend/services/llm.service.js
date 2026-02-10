@@ -268,7 +268,7 @@ export const llmServicer = {
 
         // Configuration du chat avec system prompt personnalisé
         const chatConfig = {
-          model: "gemini-2.0-flash-exp",
+          model: "gemini-2.5-flash-lite",
           history,
         };
 
