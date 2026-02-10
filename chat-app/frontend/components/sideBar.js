@@ -344,6 +344,19 @@ export default function Sidebar({
       {/* Header */}
       <div className="p-4 space-y-4">
         <button
+          onClick={()=>{push('cv-builder')}}
+          className={`w-full mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02] ${
+            !isExpanded && !isPinned ? 'px-0' : 'px-4'
+          }`}
+          title={!isExpanded && !isPinned ? 'generer un cv' : ''}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {(isExpanded || isPinned) && <span>Generer un CV</span>}
+        </button>
+
+        <button
           onClick={onNewConversation}
           className="w-full h-11 bg-white/[0.03] hover:bg-white/[0.06] text-white border border-white/10 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
         >

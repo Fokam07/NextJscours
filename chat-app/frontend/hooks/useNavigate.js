@@ -5,27 +5,29 @@ import { useAuth } from "./useAuth";
 
 const navigateContext  = createContext();
 export function NavigateProvider({children}){
-console.log("useNavigate() executé");
-  const [route, setRoute] = useState("home");
+  const [route, setRoute] = useState('home');
     const [abrRoute, setAbr] = useState(['home']);
     const {user} = useAuth();
+    function updateRoute(newRoute){
+        sessionStorage.setItem('router',newRoute );
+        setRoute(newRoute);
+    }
 
     // Redirection vers login si pas connecté
     useEffect(()=> {
-        if (!user && route !== 'login' && route !== 'register' && route !== 'home') {
-            setRoute('login');
-            setAbr(['login']);
-        }
-        if(user){
-            setRoute('chat-area');
+        // if (!user && route !== 'login' && route !== 'register' && route !== 'home') {
+        //     setRoute('login');
+        //     setAbr(['login']);
+        // }
+            updateRoute(sessionStorage.getItem('router') || 'chat-area');
             setAbr(['chat-area']);
-        }
+        
     }, [user]);
 
     const push = (rt, remplace = false) => {
         if (!user && rt !== 'login' && rt !== 'register' && rt !== 'home') {
             console.log("l'utilisateur n'est pas connecte")
-            setRoute('login');
+            updateRoute('login');
             setAbr(['login']);
             return;
         }
@@ -39,7 +41,7 @@ console.log("useNavigate() executé");
         }
 
         setAbr(prev => [...prev, rt]);
-        setRoute(rt);
+        updateRoute(rt);
     };
 
     const pop = () => {
@@ -52,12 +54,12 @@ console.log("useNavigate() executé");
             return copy;
         });
 
-        setRoute(rt);
+        updateRoute(rt);
     };
 
     return <navigateContext.Provider value={{route, pop, push}}>
         {children }
-    </navigateContext.Provider>;
+        </navigateContext.Provider>;
 }
 
 export function useNavigate(){
