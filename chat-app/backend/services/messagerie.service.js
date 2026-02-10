@@ -1,19 +1,12 @@
 // backend/services/message.service.js
 import prisma from '../lib/prisma.js';
 import { conversationService } from './conversation.service.js';
-import { llmServicer , llmService} from './llm.service.js';
+import { llmServicer, llmService } from './llm.service.js';
+import { roleService } from './role.service.js';
 
 export const messageService = {
   /**
    * Créer un message (utilisateur ou assistant)
-   * @param {Object} param
-   * @param {string} param.conversationId
-   * @param {string} [param.userId]         // requis pour user, optionnel pour assistant
-   * @param {string} param.content
-   * @param {'user'|'assistant'} param.role
-   * @param {string} [param.model]
-   * @param {number} [param.tokens]
-   * @param {Array} [param.attachments]     // tableau d'objets {name, url, type, size?, ...}
    */
   async createMessage({
     conversationId,
@@ -29,7 +22,7 @@ export const messageService = {
         content: content ?? '',
         role,
         conversationId,
-        userId: role === 'user' ? userId : null, // assistant n'a pas de userId
+        userId: role === 'user' ? userId : null,
         model,
         tokens,
         attachments: attachments.length > 0 ? attachments : null,
@@ -43,10 +36,16 @@ export const messageService = {
   },
 
   /**
-   * Envoyer un message utilisateur → générer la réponse IA
-   * Gère aussi la création du titre automatique si première interaction
+   * ✅ CORRECTION MAJEURE : Envoyer un message utilisateur → générer la réponse IA
+   * Gère l'injection du system prompt selon le rôle de la conversation
    */
-  async sendMessage({ conversationId, userId, content, attachments = [], selectedModel = 'gemini'}) {
+  async sendMessage({
+    conversationId,
+    userId,
+    content,
+    attachments = [],
+    selectedModel = 'gemini',
+  }) {
     try {
       // 1. Vérifier que la conversation existe et appartient à l'utilisateur
       const conversation = await conversationService.getConversationById(conversationId, userId);
@@ -54,17 +53,9 @@ export const messageService = {
         throw new Error('Conversation non trouvée ou accès non autorisé');
       }
 
-      // 2. Créer le message utilisateur
-      const userMessage = await this.createMessage({
-        conversationId,
-        userId,
-        content,
-        role: 'user',
-        attachments,
-      });
-
-      // 3. Récupérer tout l'historique (incluant le message qu'on vient de créer)
-      const messages = await prisma.message.findMany({
+      // 2. Récupérer les messages existants EN PREMIER (avant de créer le nouveau)
+      //    → nécessaire pour lire le system prompt et construire l'historique
+      const existingMessages = await prisma.message.findMany({
         where: { conversationId },
         orderBy: { createdAt: 'asc' },
         select: {
@@ -74,47 +65,101 @@ export const messageService = {
         },
       });
 
-      // 4. Préparer le format attendu par le LLM
-      const history = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      }));
+      // 3. ✅ CORRECTION : Extraire le system prompt ET filtrer l'historique
+      let systemPrompt = null;
+      let historyWithoutSystem = [];
 
-      // 5. Générer un titre automatique si c'est le tout premier message utilisateur
-      if (history.length === 1 && history[0].role === 'user') {
+      const firstMessage = existingMessages[0];
+      if (firstMessage && firstMessage.role === 'system') {
+        systemPrompt = firstMessage.content;
+        // ✅ IMPORTANT : Ne pas inclure le message 'system' dans l'historique
+        // car il sera passé séparément dans systemInstruction
+        historyWithoutSystem = existingMessages.slice(1);
+        console.log('[MessageService] ✅ System prompt trouvé:', systemPrompt.substring(0, 100) + '...');
+      } else {
+        historyWithoutSystem = existingMessages;
+        console.log('[MessageService] ⚠️ Aucun message système trouvé');
+      }
+
+      // 4. Créer le message utilisateur en BDD
+      const userMessage = await this.createMessage({
+        conversationId,
+        userId,
+        content,
+        role: 'user',
+        attachments,
+      });
+
+      // 5. ✅ CORRECTION : Construire l'historique SANS le message system
+      //    Le message system sera passé via systemInstruction
+      const messages = [
+        ...historyWithoutSystem,
+        { role: 'user', content, attachments },
+      ];
+
+      // 6. Préparer le format attendu par le LLM (rôle + contenu uniquement)
+      // ✅ IMPORTANT : Filtrer les messages 'system' de l'historique
+      const history = messages
+        .filter(msg => msg.role !== 'system') // Double sécurité
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+      console.log('[MessageService] Historique envoyé au LLM:', history.length, 'messages');
+      console.log('[MessageService] System prompt:', systemPrompt ? 'OUI' : 'NON');
+
+      // 7. Générer un titre automatique si c'est le tout premier message utilisateur
+      const userMessages = historyWithoutSystem.filter(m => m.role === 'user');
+      if (userMessages.length === 0) {
         const title = await llmService.generateConversationTitle(content);
         await conversationService.updateConversationTitle(conversationId, userId, title);
       }
 
-      // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
+      // 8. Demander la réponse au LLM avec le system prompt
       const lastAttachments = attachments.length > 0 ? attachments : [];
       let llmResponse;
-      
-      // Choisir le service LLM selon le modèle sélectionné
+
       if (selectedModel === 'gemini') {
-        llmResponse = await llmServicer.generateResponse(content, history, lastAttachments, conversationId);
+        llmResponse = await llmServicer.generateResponse(
+          content,
+          history,
+          lastAttachments,
+          conversationId,
+          systemPrompt // ✅ Le system prompt est passé séparément
+        );
       } else if (selectedModel === 'llama') {
-        llmResponse = await llmService.generateResponse(history, lastAttachments);
+        llmResponse = await llmService.generateResponse(
+          history,
+          lastAttachments,
+          systemPrompt
+        );
       } else {
         // Par défaut, utiliser Gemini
-        llmResponse = await llmServicer.generateResponse(content, history, lastAttachments, conversationId);
+        llmResponse = await llmServicer.generateResponse(
+          content,
+          history,
+          lastAttachments,
+          conversationId,
+          systemPrompt
+        );
       }
 
-      // 7. Créer le message assistant
+      // 9. Créer le message assistant en BDD
       const assistantMessage = await this.createMessage({
         conversationId,
-        userId, // passé mais ignoré en interne pour role=assistant
+        userId,
         content: llmResponse.content,
         role: 'assistant',
         model: llmResponse.model,
         tokens: llmResponse.tokens,
       });
 
-      // 8. Retour (avec attachments parsés pour le client)
+      // 10. Retourner les deux messages
       return {
         userMessage: {
           ...userMessage,
-          attachments: attachments,
+          attachments,
         },
         assistantMessage: {
           ...assistantMessage,
@@ -122,50 +167,62 @@ export const messageService = {
         },
       };
     } catch (error) {
-      console.error('Erreur dans sendMessage:', error);
+      console.error('[MessageService] Erreur dans sendMessage:', error);
       throw error;
     }
   },
-  
-  /**
-   * Envoyer un message utilisateur → générer la réponse IA
-   * Gère aussi la création du titre automatique si première interaction
-   */
-  async sendAnonymousMessage({ content, attachments = []}) {
-    try {
-      // 6. Demander la réponse au LLM (en lui passant éventuellement les attachments du dernier message)
-      const lastAttachments = attachments.length > 0 ? attachments : [];
-      const llmResponse = await llmServicer.generateResponse( content, [], lastAttachments, Math.random()*100);
 
-      // 8. Retour (avec attachments parsés pour le client)
+  /**
+   * Envoyer un message anonyme (sans sauvegarde en BDD)
+   */
+  async sendAnonymousMessage({ content, attachments = [], roleId = null, userId = null }) {
+    try {
+      // Récupérer le system prompt si roleId fourni
+      let systemPrompt = null;
+      if (roleId && userId) {
+        try {
+          systemPrompt = await roleService.getSystemPrompt(roleId, userId);
+        } catch (err) {
+          console.warn('[MessageService] Erreur récupération rôle anonyme:', err);
+        }
+      }
+
+      const lastAttachments = attachments.length > 0 ? attachments : [];
+      const llmResponse = await llmServicer.generateResponse(
+        content,
+        [],
+        lastAttachments,
+        Math.random() * 100,
+        systemPrompt
+      );
+
       return {
         userMessage: {
           id: `temp-${Date.now()}`,
           content: content?.trim() || '',
           role: 'user',
           createdAt: new Date().toISOString(),
-          attachments
+          attachments,
         },
         assistantMessage: {
           id: `temp-${Date.now()}ia`,
           content: llmResponse.content,
           role: 'assistant',
-          model: llmResponse.nodel,
+          model: llmResponse.model,
           createdAt: new Date().toISOString(),
           attachments: [],
         },
       };
     } catch (error) {
-      console.error('Erreur dans sendMessage:', error);
+      console.error('[MessageService] Erreur dans sendAnonymousMessage:', error);
       throw error;
     }
   },
 
   /**
-   * Récupérer tous les messages d'une conversation (avec parsing des attachments)
+   * Récupérer tous les messages d'une conversation
    */
   async getConversationMessages(conversationId, userId) {
-    // Vérification d'accès
     await conversationService.getConversationById(conversationId, userId);
 
     const messages = await prisma.message.findMany({
@@ -180,15 +237,13 @@ export const messageService = {
   },
 
   /**
-   * Récupérer un message unique (avec vérification d'appartenance)
+   * Récupérer un message unique
    */
   async getMessageById(messageId, userId) {
     const message = await prisma.message.findFirst({
       where: {
         id: messageId,
-        conversation: {
-          userId,
-        },
+        conversation: { userId },
       },
     });
 
@@ -203,14 +258,14 @@ export const messageService = {
   },
 
   /**
-   * Mettre à jour le contenu d'un message (uniquement si c'est un message de l'utilisateur)
+   * Mettre à jour le contenu d'un message
    */
   async updateMessage(messageId, userId, content) {
     const message = await prisma.message.findFirst({
       where: {
         id: messageId,
         userId,
-        role: 'user', // on ne modifie que les messages utilisateur
+        role: 'user',
       },
     });
 
@@ -240,8 +295,6 @@ export const messageService = {
     }
 
     await prisma.message.delete({ where: { id: messageId } });
-
-    // Optionnel : on peut retoucher la conversation ou recalculer quelque chose ici
     await conversationService.touchConversation(message.conversationId);
 
     return { success: true };
@@ -267,7 +320,7 @@ export const messageService = {
   },
 
   /**
-   * (Optionnel) Compter les messages
+   * Compter les messages
    */
   async countMessages(conversationId) {
     return prisma.message.count({ where: { conversationId } });

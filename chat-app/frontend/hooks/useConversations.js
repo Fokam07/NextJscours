@@ -32,23 +32,39 @@ export function useConversations(userId) {
     fetchConversations();
   }, [userId]);
 
-  const createConversation = async (title = 'Nouvelle conversation') => {
+  /**
+   * ✅ CORRECTION : Créer une conversation avec un rôle optionnel
+   * @param {string} roleId - ID du rôle à appliquer (optionnel)
+   * @param {string} title - Titre de la conversation (optionnel)
+   */
+  const createConversation = async (roleId = null, title = 'Nouvelle conversation') => {
     try {
+      console.log('[useConversations] Création conversation avec roleId:', roleId);
+      
       const response = await fetch('/api/conversations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': userId,
         },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ 
+          title,
+          roleId // ✅ Passer le roleId au backend
+        }),
       });
 
-      if (!response.ok) throw new Error('Erreur création');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur création');
+      }
 
       const newConv = await response.json();
+      console.log('[useConversations] ✅ Conversation créée:', newConv.id);
+      
       setConversations(prev => [newConv, ...prev]);
       return newConv;
     } catch (err) {
+      console.error('[useConversations] Erreur:', err);
       setError(err.message);
       return null;
     }

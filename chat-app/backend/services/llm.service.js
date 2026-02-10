@@ -1,22 +1,39 @@
 /**
- * Service pour interagir avec un LLM (Groq ou Gemini)
- * IMPORTANT: ne jamais faire planter le module au moment de l'import
+ * Service pour interagir avec le LLM le model IA
+ * Avec support de génération de titres intelligents
  */
 
 import { createPartFromUri, createUserContent, GoogleGenAI } from "@google/genai";
 
 export const llmService = {
   /**
-   * Générer une réponse via Groq
-   * @param {Array} messages - [{role, content}]
-   * @param {Array} attachments - optionnel
+   * Générer une réponse du LLM
+   * @param {Array} messages - Historique des messages [{role, content}]
+   * @param {Array} attachments - Fichiers joints (optionnel)
+   * @returns {Object} - {content, model, tokens}
    */
-  async generateResponse(messages, attachments = []) {
+  async generateResponse(messages, attachments = [], systemPrompt = null) {
     try {
       // ✅ Ne valide la clé QUE quand on appelle la fonction
       const apiKey = requireEnv("GROQ_API_KEY");
 
       let enrichedMessages = [...messages];
+
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
+
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
 
       if (attachments.length > 0) {
         const fileList = attachments
@@ -110,7 +127,7 @@ Titre: Guide touristique Paris`,
           },
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
-            messages,
+            messages: messages,
             temperature: 0.5,
             max_tokens: 50,
           }),
@@ -132,14 +149,20 @@ Titre: Guide touristique Paris`,
   },
 
   generateSimpleTitle(message) {
-    const cleaned = (message ?? "").trim();
+    const cleaned = message.trim();
     const words = cleaned.split(/\s+/).slice(0, 5);
     let title = words.join(" ");
 
-    if (title.length > 50) title = title.substring(0, 47) + "...";
+    if (title.length > 50) {
+      title = title.substring(0, 47) + "...";
+    }
+
     return title || "Nouvelle conversation";
   },
 
+  /**
+   * Liste des modèles Groq disponibles
+   */
   getAvailableModels() {
     return [
       {
@@ -190,6 +213,13 @@ Titre: Guide touristique Paris`,
 
     return estimatedTokens < model.maxTokens * 0.8; // Garder 20% de marge
   },
+
+  // async generateCv({offre, poste, exist}) {
+  //   try{
+
+    
+
+  // }
 };
 
 const ai = new GoogleGenAI({});
@@ -223,22 +253,52 @@ async function saveTempFile(buffer, filename) {
 }
 
 export const llmServicer = {
-  async generateResponse(message, messages, attachments = [], conversationId) {
+  /**
+   * Générer une réponse avec Gemini
+   * @param {string} message - Message actuel de l'utilisateur
+   * @param {Array} messages - Historique des messages
+   * @param {Array} attachments - Fichiers joints
+   * @param {string} conversationId - ID de la conversation
+   * @param {string} systemPrompt - Prompt système personnalisé (optionnel)
+   */
+  async generateResponse(
+    message,
+    messages,
+    attachments = [],
+    conversationId,
+    systemPrompt = null
+  ) {
     try {
       const ai = getGeminiClient();
 
       let chat = chats.get(conversationId);
+      
       if (!chat) {
-        const history = [...(messages ?? [])].map((m) => ({
-          role: m.role === "assistant" ? "model" : m.role,
-          parts: [{ text: m.content }],
-        }));
-
-        chat = ai.chats.create({
-          model: "gemini-2.5-flash",
-          history,
+        console.log("[LLM] Création nouveau chat pour conversation:", conversationId);
+        
+        // Convertir l'historique au format Gemini
+        const history = [...messages].map((msg) => {
+          return {
+            role: msg.role === 'assistant' ? 'model' : msg.role,
+            parts: [{ text: msg.content }],
+          };
         });
 
+        // Configuration du chat avec system prompt personnalisé
+        const chatConfig = {
+          model: "gemini-2.0-flash-exp",
+          history,
+        };
+
+        // Ajouter le system prompt si fourni
+        if (systemPrompt) {
+          chatConfig.config = {
+            systemInstruction: systemPrompt,
+          };
+          console.log("[LLM] System prompt appliqué:", systemPrompt.substring(0, 100) + "...");
+        }
+
+        chat = ai.chats.create(chatConfig);
         chats.set(conversationId, chat);
       }
 
@@ -326,13 +386,25 @@ export const llmServicer = {
       console.log("erreur gemini cv: ", error);
         throw new Error("erreur de la generation du cv")
     }
+  },
 
-  }
+  /**
+   * Invalider le cache d'un chat (utile si le rôle change)
+   */
+  clearChatCache(conversationId) {
+    if (chats.has(conversationId)) {
+      chats.delete(conversationId);
+      console.log("[LLM] Cache chat supprimé pour:", conversationId);
+    }
+  },
+
+  /**
+   * Obtenir les statistiques des chats en cache
+   */
+  getCacheStats() {
+    return {
+      activeChatCount: chats.size,
+      conversationIds: Array.from(chats.keys()),
+    };
+  },
 };
-
-
-
-
-
-
-
