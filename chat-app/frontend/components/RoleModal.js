@@ -1,34 +1,22 @@
-// frontend/components/RoleModal.js
+// frontend/components/RoleModal.js - Thème Overlord
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../../backend/lib/supabase';
 
-const EMOJI_OPTIONS = ['🤖', '💻', '💪', '📚', '✈️', '👨‍🍳', '🧠', '💼', '🎨', '🎮', '⚽', '🎵', '📊', '🔬', '🏴‍☠️', '🧙‍♂️', '👑', '🦸‍♂️'];
-const CATEGORY_OPTIONS = [
-  { value: 'general', label: 'Général' },
-  { value: 'tech', label: 'Technologie' },
-  { value: 'health', label: 'Santé' },
-  { value: 'education', label: 'Éducation' },
-  { value: 'business', label: 'Business' },
-  { value: 'lifestyle', label: 'Style de vie' },
-  { value: 'fun', label: 'Divertissement' },
-  { value: 'custom', label: 'Personnalisé' },
-];
-
-export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }) {
+export default function RoleModal({ isOpen, onClose, onSave, roleToEdit, user }) {
   const [formData, setFormData] = useState({
     name: '',
     system_prompt: '',
     description: '',
-    icon: '🤖',
+    icon: '🎭',
     category: 'custom',
-    visibility: 'private',
+    visibility: 'private'
   });
-  
-  const [errors, setErrors] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // Icons suggestions
+  const iconSuggestions = ['🎭', '🧙', '👑', '⚔️', '🏰', '📜', '🔮', '💀', '👹', '🐉', '⚡', '🌟'];
 
   useEffect(() => {
     if (roleToEdit) {
@@ -36,335 +24,289 @@ export default function RoleModal({ isOpen, onClose, onSave, roleToEdit = null }
         name: roleToEdit.name || '',
         system_prompt: roleToEdit.system_prompt || '',
         description: roleToEdit.description || '',
-        icon: roleToEdit.icon || '🤖',
+        icon: roleToEdit.icon || '🎭',
         category: roleToEdit.category || 'custom',
-        visibility: roleToEdit.visibility || 'private',
+        visibility: roleToEdit.visibility || 'private'
       });
     } else {
       setFormData({
         name: '',
         system_prompt: '',
         description: '',
-        icon: '🤖',
+        icon: '🎭',
         category: 'custom',
-        visibility: 'private',
+        visibility: 'private'
       });
     }
+    setError('');
   }, [roleToEdit, isOpen]);
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Le nom est requis';
-    } else if (formData.name.length > 100) {
-      newErrors.name = 'Le nom ne peut pas dépasser 100 caractères';
-    }
-
-    if (!formData.system_prompt.trim()) {
-      newErrors.system_prompt = 'Le prompt système est requis';
-    } else if (formData.system_prompt.length < 10) {
-      newErrors.system_prompt = 'Le prompt doit contenir au moins 10 caractères';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setSaving(true);
 
-    if (!validateForm()) return;
-
-    setIsSaving(true);
     try {
-      // Récupérer l'utilisateur via Supabase auth
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-      if (authError || !user) {
-        setErrors({ submit: 'Vous devez être connecté pour créer un rôle' });
-        return;
-      }
-
-      // CORRECTION : passer par l'API Next.js (pas Supabase direct)
-      // Cela garantit que roleService enregistre bien userid et is_active
-      const url = roleToEdit ? `/api/roles/${roleToEdit.id}` : '/api/roles';
       const method = roleToEdit ? 'PUT' : 'POST';
+      const url = roleToEdit ? `/api/roles/${roleToEdit.id}` : '/api/roles';
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': user.id,
+          'x-user-id': user?.id,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          system_prompt: formData.system_prompt,
-          description: formData.description,
-          icon: formData.icon,
-          category: formData.category,
-          visibility: formData.visibility,
-        }),
+        body: JSON.stringify(formData),
       });
-
-      const data = await response.json();
 
       if (!response.ok) {
-        console.error('Erreur API roles:', data);
-        setErrors({ submit: data.error || 'Erreur lors de la sauvegarde' });
-      } else {
-        onSave(data.role);
-        onClose();
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la sauvegarde');
       }
-    } catch (error) {
-      console.error('Erreur sauvegarde rôle:', error);
-      setErrors({ submit: 'Erreur de connexion au serveur' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
+      const data = await response.json();
+      onSave(data.role);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="bg-[#0c1220] rounded-2xl shadow-2xl shadow-black/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/[0.08] custom-scrollbar ring-1 ring-white/[0.04]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-gradient-to-b from-[hsl(260,25%,7%)] to-[hsl(260,20%,10%)] rounded-2xl border border-[hsl(260,15%,14%)] shadow-[0_8px_40px_rgba(0,0,0,0.6)] max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-cyan-600/90 to-blue-600/90 p-6 rounded-t-2xl backdrop-blur-sm border-b border-white/10 z-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3 tracking-tight">
-              <span className="text-2xl w-10 h-10 flex items-center justify-center bg-white/15 rounded-xl ring-1 ring-white/20">{formData.icon}</span>
-              {roleToEdit ? 'Modifier le rôle' : 'Créer un nouveau rôle'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white/70 hover:text-white transition-all duration-200 p-2 hover:bg-white/10 rounded-xl"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <div className="p-6 border-b border-[hsl(260,15%,14%)] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[hsl(270,50%,40%,0.15)] rounded-xl flex items-center justify-center border border-[hsl(270,50%,40%,0.25)]">
+              <svg className="w-6 h-6 text-[hsl(270,50%,50%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-            </button>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[hsl(42,50%,54%)] tracking-wide uppercase">
+                {roleToEdit ? 'Modifier le Rôle' : 'Créer un Rôle'}
+              </h2>
+              <p className="text-xs text-[hsl(42,30%,45%)] uppercase tracking-wider">
+                Configurez votre persona IA
+              </p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-[hsl(42,30%,65%)] hover:text-[hsl(0,50%,60%)] hover:bg-[hsl(0,60%,35%,0.1)] rounded-lg transition-all"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Icône */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2.5 uppercase tracking-wider">
-              Icône du rôle
-            </label>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-14 h-14 bg-white/[0.04] hover:bg-white/[0.08] rounded-xl flex items-center justify-center text-3xl transition-all duration-300 border border-white/[0.08] hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] ring-1 ring-white/[0.03]"
-              >
-                {formData.icon}
-              </button>
-              {showEmojiPicker && (
-                <div className="flex flex-wrap gap-1.5 flex-1 p-3 bg-white/[0.03] rounded-xl border border-white/[0.08]">
-                  {EMOJI_OPTIONS.map(emoji => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => {
-                        handleChange('icon', emoji);
-                        setShowEmojiPicker(false);
-                      }}
-                      className="w-9 h-9 hover:bg-white/[0.08] rounded-lg flex items-center justify-center text-xl transition-all duration-200 hover:scale-110"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Nom */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Nom du rôle *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="Ex: Expert en Python"
-              className={`w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border ${
-                errors.name ? 'border-red-500/40' : 'border-white/[0.08]'
-              } focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 text-sm placeholder:text-gray-600`}
-              maxLength={100}
-            />
-            {errors.name && (
-              <p className="text-red-400 text-xs mt-1.5 font-medium">{errors.name}</p>
-            )}
-            <p className="text-gray-600 text-[11px] mt-1.5 font-medium">
-              {formData.name.length}/100 caractères
-            </p>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Description (optionnel)
-            </label>
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Ex: Spécialisé en développement Python et frameworks web"
-              className="w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border border-white/[0.08] focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 text-sm placeholder:text-gray-600"
-            />
-          </div>
-
-          {/* Catégorie */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Catégorie
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => handleChange('category', e.target.value)}
-              className="w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border border-white/[0.08] focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 cursor-pointer text-sm"
-            >
-              {CATEGORY_OPTIONS.map(cat => (
-                <option key={cat.value} value={cat.value} className="bg-[#0c1220] text-gray-200">
-                  {cat.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* System Prompt */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Prompt système * 
-              <span className="text-gray-600 normal-case tracking-normal font-normal ml-2">(Définit le comportement de l'IA)</span>
-            </label>
-            <textarea
-              value={formData.system_prompt}
-              onChange={(e) => handleChange('system_prompt', e.target.value)}
-              placeholder="Ex: Tu es un expert en programmation Python avec plus de 10 ans d'expérience. Tu fournis du code propre, bien commenté et tu expliques tes solutions de manière pédagogique..."
-              rows={8}
-              className={`w-full bg-white/[0.04] text-gray-200 px-4 py-3 rounded-xl border ${
-                errors.system_prompt ? 'border-red-500/40' : 'border-white/[0.08]'
-              } focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-all duration-300 resize-none font-mono text-sm placeholder:text-gray-600 leading-relaxed`}
-            />
-            {errors.system_prompt && (
-              <p className="text-red-400 text-xs mt-1.5 font-medium">{errors.system_prompt}</p>
-            )}
-            <p className="text-gray-600 text-[11px] mt-1.5 font-medium">
-              Ce texte définit la personnalité et le comportement de l'IA. Soyez précis et détaillé.
-            </p>
-          </div>
-
-          {/* Visibilité */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-400 mb-2.5 uppercase tracking-wider">
-              Visibilité
-            </label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => handleChange('visibility', 'private')}
-                className={`flex-1 py-3.5 px-4 rounded-xl border-2 transition-all duration-300 ${
-                  formData.visibility === 'private'
-                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
-                    : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:border-white/[0.12] hover:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="font-medium text-sm">Privé</span>
-                </div>
-                <p className="text-[11px] mt-1.5 opacity-60 font-medium">Visible uniquement par vous</p>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handleChange('visibility', 'shared')}
-                className={`flex-1 py-3.5 px-4 rounded-xl border-2 transition-all duration-300 ${
-                  formData.visibility === 'shared'
-                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
-                    : 'border-white/[0.06] bg-white/[0.02] text-gray-500 hover:border-white/[0.12] hover:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="font-medium text-sm">Partageable</span>
-                </div>
-                <p className="text-[11px] mt-1.5 opacity-60 font-medium">Peut être partagé avec d'autres</p>
-              </button>
-            </div>
-          </div>
-
-          {/* Erreur globale */}
-          {errors.submit && (
-            <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-4">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <p className="text-red-400 text-sm font-medium">{errors.submit}</p>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar">
+          {/* Error message */}
+          {error && (
+            <div className="bg-[hsl(0,60%,35%,0.15)] border border-[hsl(0,60%,35%,0.3)] rounded-xl p-4 flex items-start gap-3">
+              <svg className="w-5 h-5 text-[hsl(0,50%,60%)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-bold text-[hsl(0,50%,60%)] uppercase tracking-wide">Erreur</p>
+                <p className="text-sm text-[hsl(42,30%,65%)] mt-1">{error}</p>
               </div>
             </div>
           )}
 
-          {/* Boutons d'action */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 py-3 px-6 rounded-xl transition-all duration-300 font-medium border border-white/[0.08] hover:border-white/[0.12] text-sm"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white py-3 px-6 rounded-xl transition-all duration-300 font-medium shadow-lg shadow-cyan-500/15 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Sauvegarde...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>{roleToEdit ? 'Mettre à jour' : 'Créer le rôle'}</span>
-                </>
-              )}
-            </button>
+          {/* Icon Selection */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Icône
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {iconSuggestions.map((icon) => (
+                <button
+                  key={icon}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, icon })}
+                  className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-2xl transition-all ${
+                    formData.icon === icon
+                      ? 'border-[hsl(42,50%,54%)] bg-[hsl(42,50%,54%,0.15)] scale-110'
+                      : 'border-[hsl(260,15%,14%)] bg-[hsl(260,20%,10%)] hover:border-[hsl(42,50%,54%,0.5)] hover:scale-105'
+                  }`}
+                >
+                  {icon}
+                </button>
+              ))}
+              <input
+                type="text"
+                value={formData.icon}
+                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                className="w-12 h-12 bg-[hsl(260,20%,8%)] text-center text-2xl border-2 border-[hsl(260,15%,14%)] rounded-lg focus:border-[hsl(42,50%,54%,0.3)] outline-none transition-all"
+                maxLength={2}
+              />
+            </div>
+          </div>
+
+          {/* Name */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Nom du rôle *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full bg-[hsl(260,20%,8%)] text-[hsl(42,30%,82%)] border border-[hsl(260,15%,14%)] rounded-lg px-4 py-3 text-sm focus:border-[hsl(42,50%,54%,0.3)] focus:outline-none focus:ring-1 focus:ring-[hsl(42,50%,54%,0.15)] transition-all placeholder:text-[hsl(260,10%,25%)]"
+              placeholder="Ex: Maître Stratège"
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Description
+            </label>
+            <input
+              type="text"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full bg-[hsl(260,20%,8%)] text-[hsl(42,30%,82%)] border border-[hsl(260,15%,14%)] rounded-lg px-4 py-3 text-sm focus:border-[hsl(42,50%,54%,0.3)] focus:outline-none focus:ring-1 focus:ring-[hsl(42,50%,54%,0.15)] transition-all placeholder:text-[hsl(260,10%,25%)]"
+              placeholder="Description courte du rôle"
+            />
+          </div>
+
+          {/* System Prompt */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Prompt système *
+            </label>
+            <textarea
+              required
+              value={formData.system_prompt}
+              onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+              className="w-full bg-[hsl(260,20%,8%)] text-[hsl(42,30%,82%)] border border-[hsl(260,15%,14%)] rounded-lg px-4 py-3 text-sm resize-none focus:border-[hsl(42,50%,54%,0.3)] focus:outline-none focus:ring-1 focus:ring-[hsl(42,50%,54%,0.15)] transition-all placeholder:text-[hsl(260,10%,25%)]"
+              rows={6}
+              placeholder="Tu es un expert en stratégie militaire. Tu analyses les situations avec une perspective tactique et fournis des conseils pragmatiques..."
+              minLength={10}
+            />
+            <p className="text-xs text-[hsl(42,30%,45%)]">
+              Définissez le comportement et l'expertise de l'IA (min. 10 caractères)
+            </p>
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Catégorie
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {['custom', 'work', 'creative', 'learning', 'coding', 'strategy'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, category: cat })}
+                  className={`py-2.5 px-4 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${
+                    formData.category === cat
+                      ? 'bg-[hsl(270,50%,40%,0.2)] text-[hsl(42,50%,54%)] border-[hsl(270,50%,40%,0.3)]'
+                      : 'bg-[hsl(260,20%,10%)] text-[hsl(42,30%,65%)] border-[hsl(260,15%,14%)] hover:border-[hsl(42,50%,54%,0.3)]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visibility */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-[hsl(42,50%,54%)] uppercase tracking-[0.2em]">
+              Visibilité
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, visibility: 'private' })}
+                className={`py-3 px-4 rounded-lg text-sm font-semibold transition-all border flex items-center gap-2 justify-center ${
+                  formData.visibility === 'private'
+                    ? 'bg-[hsl(0,60%,35%,0.2)] text-[hsl(42,50%,54%)] border-[hsl(0,60%,35%,0.3)]'
+                    : 'bg-[hsl(260,20%,10%)] text-[hsl(42,30%,65%)] border-[hsl(260,15%,14%)] hover:border-[hsl(42,50%,54%,0.3)]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Privé
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, visibility: 'shared' })}
+                className={`py-3 px-4 rounded-lg text-sm font-semibold transition-all border flex items-center gap-2 justify-center ${
+                  formData.visibility === 'shared'
+                    ? 'bg-[hsl(142,70%,36%,0.2)] text-[hsl(42,50%,54%)] border-[hsl(142,70%,36%,0.3)]'
+                    : 'bg-[hsl(260,20%,10%)] text-[hsl(42,30%,65%)] border-[hsl(260,15%,14%)] hover:border-[hsl(42,50%,54%,0.3)]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Partagé
+              </button>
+            </div>
           </div>
         </form>
 
-        <style jsx>{`
-          .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(6,182,212,0.08); border-radius: 20px; }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(6,182,212,0.15); }
-        `}</style>
+        {/* Footer */}
+        <div className="p-6 border-t border-[hsl(260,15%,14%)] flex gap-3 justify-end bg-[hsl(260,25%,7%)]">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-6 py-3 bg-[hsl(260,20%,10%)] hover:bg-[hsl(260,15%,14%)] text-[hsl(42,30%,65%)] rounded-lg font-semibold transition-all border border-[hsl(260,15%,14%)] disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wide"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="px-6 py-3 bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] text-[hsl(42,50%,70%)] rounded-lg font-bold transition-all border border-[hsl(0,50%,40%,0.3)] disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(139,0,0,0.2)] active:scale-95 flex items-center gap-2 text-sm uppercase tracking-wide"
+          >
+            {saving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-[hsl(42,50%,54%,0.3)] border-t-[hsl(42,50%,54%)] rounded-full animate-spin"></div>
+                <span>Sauvegarde...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{roleToEdit ? 'Modifier' : 'Créer'}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar { 
+          width: 6px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { 
+          background: hsl(260,25%,7%); 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+          background: hsl(42,50%,54%,0.2); 
+          border-radius: 20px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+          background: hsl(42,50%,54%,0.3); 
+        }
+      `}</style>
     </div>
   );
 }
