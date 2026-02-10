@@ -85,9 +85,11 @@ export const AuthProvider = ({children}) =>{
       return;
     }
 
-    const sbUser = session.user;
+    if(!user || (user && user.id != session.user.id)){
+      const sbUser = session.user;
       const appUser = await findOrCreateUser(sbUser.id, sbUser.email);
       setUser(appUser);
+    }
   };
 
   useEffect(() => {

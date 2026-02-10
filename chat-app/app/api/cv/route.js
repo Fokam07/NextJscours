@@ -48,49 +48,44 @@ export async function POST(request) {
  }   
 }
 
-async function uploadFile(file, userId, ) {
-  const uploadDir = join(process.cwd(), 'public', 'uploads', userId, 'cv');
+async function uploadFile(file, userId) {
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const bucket = "your-bucket-name"; // ✅ Ajouter le nom du bucket
+  const conversationId = crypto.randomUUID(); // ✅ Générer un ID
 
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
- 
-    try {
-      // Vérifier la taille
-      if (file.size > MAX_FILE_SIZE) {
-        console.warn(`Fichier ${file.name} trop volumineux (${file.size} bytes)`);
-        throw new Error("fichier trop volumineux");
-      }
-
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `${safeUser}/${conversationId}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;
-
-      const { error } = await supabaseAdmin.storage
-              .from(bucket)
-              .upload(storagePath, buffer, {
-                contentType: file.type || "application/octet-stream",
-                upsert: false,
-              });
-      
-            if (error) throw error;
-
-      const { data: publicUrl } = supabaseAdmin.storage
-              .from(bucket)
-              .getPublicUrl(storagePath);
-
-      return {
-        bucket,
-        path: storagePath,
-        url: publicUrl?.publicUrl, // ✅ URL complète du fichier
-        fileName: file.name,
-        mimeType: file.type,
-        size: file.size,
-      };
-    } catch (error) {
-      console.error(`Erreur upload fichier ${file.name}:`, error);
-      return null;
+  try {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error("Fichier trop volumineux");
     }
-  
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${userId}/${conversationId}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(storagePath, buffer, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+    
+    if (error) throw error;
+
+    const { data: publicUrl } = supabaseAdmin.storage
+      .from(bucket)
+      .getPublicUrl(storagePath);
+
+    return {
+      bucket,
+      path: storagePath,
+      url: publicUrl?.publicUrl,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size,
+    };
+  } catch (error) {
+    console.error(`Erreur upload:`, error);
+    return null;
+  }
 }

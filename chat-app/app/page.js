@@ -138,13 +138,16 @@ export default function Home() {
             onSelectRole={handleSelectRole}  // ← fonction complète qui gère l'objet role
             currentRoleId={currentRoleId}
           />
-          {
-            route === 'chat-area' ?
-              <ChatArea conversationId={currentConversationId} userId={user?.id} currentRoleId = {currentRoleId} />:
-            route ==='cv-builder'?
-              <GeneratorPage user={user} ></GeneratorPage>:
-              <div></div>
-          }
+          
+            {
+              route === 'chat-area' ?
+                <ChatArea conversationId={currentConversationId} userId={user?.id} currentRoleId = {currentRoleId} />:
+              route ==='cv-builder'?
+                <GeneratorPage user={user} ></GeneratorPage>:
+                <div></div>
+            }
+        
+          
     </div>
   );
 }
