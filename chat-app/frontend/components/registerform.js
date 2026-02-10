@@ -1,7 +1,7 @@
 // registerform-responsive.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from "../hooks/useAuth";
 import { createSupabaseBrowserClient } from "@/backend/lib/supabaseClient";
 
@@ -25,6 +25,13 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
     }));
   };
 
+  useEffect(()=>{
+    if(formData.email !=='' && formData.password != ''){
+        setError(err);
+      }
+      setLoading(isLoading);
+  }, [err,isLoading])
+  
   const handleSocialLogin = async (provider) => {
     try {
       setSocialError(null);

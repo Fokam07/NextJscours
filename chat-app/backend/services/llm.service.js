@@ -289,10 +289,18 @@ export const llmServicer = {
 
       
       if(existing !== null){
-        const file = await ai.files.upload({file: existing.path});
-        if(file.mimeType!=null && file.uri!=null){
+
+        if (!existing?.bucket || !existing?.path) throw Error("le cv est manquant");
+
+          // 1) Download depuis Supabase Storage
+          const buffer = await downloadFromStorage(existing.bucket, exisingPart.path);
+
+          // 2) Sauvegarder en fichier temporaire
+          const tempPath = await saveTempFile(buffer, existing.fileName);
+
+          const file = await ai.files.upload({file: tempPath});
           exisingPart =createPartFromUri(file.uri, file.mimeType);
-        }
+
       }
       console.log("le cv existant est",exisingPart)
       

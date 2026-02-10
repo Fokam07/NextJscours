@@ -49,10 +49,7 @@ export async function POST(request) {
 }
 
 async function uploadFile(file, userId, ) {
-  const uploadDir = join(process.cwd(), 'public', 'uploads', userId, 'default');
-  
-  // Créer le dossier s'il n'existe pas
-  await mkdir(uploadDir, { recursive: true });
+  const uploadDir = join(process.cwd(), 'public', 'uploads', userId, 'cv');
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -67,24 +64,29 @@ async function uploadFile(file, userId, ) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Générer un nom de fichier unique et sécurisé
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileName = `${timestamp}_${sanitizedName}`;
-      const filePath = join(uploadDir, fileName);
+      const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `${safeUser}/${conversationId}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;
 
-      // Écrire le fichier
-      await writeFile(filePath, buffer);
+      const { error } = await supabaseAdmin.storage
+              .from(bucket)
+              .upload(storagePath, buffer, {
+                contentType: file.type || "application/octet-stream",
+                upsert: false,
+              });
+      
+            if (error) throw error;
 
-      // URL publique du fichier
-      const publicUrl = `/uploads/${userId}/default/${fileName}`;
+      const { data: publicUrl } = supabaseAdmin.storage
+              .from(bucket)
+              .getPublicUrl(storagePath);
 
       return {
-        name: file.name,
-        type: file.type,
+        bucket,
+        path: storagePath,
+        url: publicUrl?.publicUrl, // ✅ URL complète du fichier
+        fileName: file.name,
+        mimeType: file.type,
         size: file.size,
-        url: publicUrl,
-        path: filePath,
       };
     } catch (error) {
       console.error(`Erreur upload fichier ${file.name}:`, error);

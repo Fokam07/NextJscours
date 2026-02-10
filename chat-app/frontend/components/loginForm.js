@@ -1,7 +1,7 @@
 // loginForm-responsive.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { createSupabaseBrowserClient } from "@/backend/lib/supabaseClient";
 
@@ -10,10 +10,18 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const {loading: isLoading, err} = useAuth();
   const [socialLoading, setSocialLoading] = useState(null); // "google" | "github" | null
   const [socialError, setSocialError] = useState(null);
 
-  const { error } = useAuth();
+    useEffect(()=>{
+      if(email!=='' && password != ''){
+        setError(err);
+      }
+      setLoading(isLoading);
+    }, [err,isLoading])
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();

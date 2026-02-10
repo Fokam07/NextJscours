@@ -1,11 +1,46 @@
-import { useState, useEffect } from "react";
+'use client'
+
+import { useState, useEffect, createContext, useContext } from 'react';
 import { createSupabaseBrowserClient as getSupabaseBrowserClient } from "@/backend/lib/supabaseClient"; // ✅ Utiliser le MÊME client partout!
 
-export function useAuth() {
-  const [user, setUser] = useState(null); // ✅ Prisma user (app)
-  const [loading, setLoading] = useState(true);
+const authContext = createContext();
+
+export const AuthProvider = ({children}) =>{
+  const [user, setUser] = useState(null);
+ const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   console.log("use auth est appele");
+
+  // useEffect(() => {
+  //   // Vérifier la session actuelle
+  //   supabase.auth.getSession().then(async ({ data: { session } }) => {
+  //     if(session?.user){
+  //       const userDb = await findOrCreateUser(session.user.id, session.user.email);
+  //       setUser(userDb??null);
+  //     }
+  //     setLoading(false);
+  //   });
+
+  //   // Écouter les changements d'authentification
+  //   const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  //     try {
+  //       if(session?.user){
+  //         if( user && session.user.id!=user.id){
+  //         const userDb = await findOrCreateUser(session.user.id, session.user.email);
+  //         setUser(userDb??null);
+  //       }
+  //       }else{
+  //         setUser(null);
+  //       }
+  //     } catch (error) {
+  //       setError(error.message);
+  //     }
+  //     finally{
+  //       setLoading(false);
+  //       console.log("loading est mis a jour", loading)
+  //     }
+
+  //   },[]);
 
   const findOrCreateUser = async (id, email) => {
     const res = await fetch(`/api/auth`, {
@@ -51,8 +86,8 @@ export function useAuth() {
     }
 
     const sbUser = session.user;
-    const appUser = await findOrCreateUser(sbUser.id, sbUser.email);
-    setUser(appUser);
+      const appUser = await findOrCreateUser(sbUser.id, sbUser.email);
+      setUser(appUser);
   };
 
   useEffect(() => {
@@ -66,7 +101,7 @@ export function useAuth() {
         // 1) Obtener session actual (incluyendo tokens refrescados)
         const { data: { session } } = await supabase.auth.getSession();
         
-        await syncFromSupabaseSession(session);
+        await syncFromSupabaseSession(session);    
       } catch (e) {
         setError(e.message);
       } finally {
@@ -171,5 +206,20 @@ export function useAuth() {
     }
   };
 
-  return { user, loading, error, signUp, signIn, signOut };
+  return <authContext.Provider value={{
+    user,
+    loading,
+    signUp,
+    signIn,
+    signOut,
+    err:error
+  }}>{children}</authContext.Provider>
+}
+
+export function useAuth() {
+  if(authContext){
+    return useContext(authContext);
+  }
+  throw new Error("authContext est null verifier que vous avez ajouter le provider");
+  
 }

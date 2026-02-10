@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from '../hooks/useNavigate';
+import { FileText } from 'lucide-react';
 
 export default function Sidebar({
   conversations,
@@ -209,9 +210,7 @@ export default function Sidebar({
           }`}
           title={!isExpanded && !isPinned ? 'generer un cv' : ''}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <FileText className="w-5 h-5 text-white" />
           {(isExpanded || isPinned) && <span>Generer un CV</span>}
         </button>
 

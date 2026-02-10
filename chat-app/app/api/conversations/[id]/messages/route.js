@@ -56,7 +56,7 @@ export async function POST(request, { params }) {
       // Traiter JSON simple (sans fichiers)
       const body = await request.json();
       content = body.content || '';
-      selectedModel = body.selectedModel || 'gemini'; // Extraire le modèle du JSON
+      selectedModel = body.selectedModel || 'grok'; // Extraire le modèle du JSON
     }
 
     // Appeler votre messageService existant avec les pièces jointes et le modèle
