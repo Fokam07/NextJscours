@@ -7,17 +7,19 @@ import LoginForm from '@/frontend/components/loginForm';
 import RegisterForm from '@/frontend/components/registerform';
 import Sidebar from '@/frontend/components/sideBar';
 import ChatArea from '@/frontend/components/chatArea';
-import GeneratorPage from '@/frontend/components/cvGenerator';
 import { useNavigate } from '@/frontend/hooks/useNavigate';
 import HomePage from '@/frontend/components/home';
-import GeneratorPage from '@/frontend/components/cvGenerator';
+import CVGenerator from '@/frontend/components/cvGenerator';
+import CVViewer from '@/frontend/components/cvViewer';
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(null);
-  const [currentView, setCurrentView] = useState('chat'); // 'chat' ou 'cv'
   const { pop, push, route } = useNavigate();
+  const [showCVGenerator, setShowCVGenerator] = useState(false);
+  const [generatedData, setGeneratedData] = useState(null);
 
   // ✅ CORRECTION 1 : Hook appelé uniquement si user existe
   const {
@@ -66,18 +68,9 @@ export default function Home() {
     );
   }
 
-  // 🆕 Gérer l'affichage du générateur de CV
-  const handleShowCVGenerator = () => {
-    console.log('[page] 📄 Affichage du générateur de CV');
-    setCurrentView('cv');
-  };
-
   // Créer une nouvelle conversation en passant le rôle actif
   const handleNewConversation = async () => {
     console.log('[page] 🆕 Création nouvelle conversation avec roleId:', currentRoleId);
-    
-    // 🆕 Retour au chat lors de la création d'une nouvelle conversation
-    setCurrentView('chat');
     
     try {
       const newConv = await createConversation(currentRoleId);
@@ -98,13 +91,6 @@ export default function Home() {
       console.error('[page] ❌ Erreur lors de la création:', error);
       alert('Erreur lors de la création de la conversation');
     }
-  };
-
-  // 🆕 Sélectionner une conversation (retour au chat)
-  const handleSelectConversation = (conversationId) => {
-    console.log('[page] 💬 Sélection conversation:', conversationId);
-    setCurrentConversationId(conversationId);
-    setCurrentView('chat');
   };
 
   // Sélectionner un rôle et mettre à jour la conversation active
@@ -144,11 +130,6 @@ export default function Home() {
     }
   };
 
-  const handleSelectConverstion = (conversationId) =>{
-    setCurrentConversationId(conversationId);
-    push('chat-area');
-  }
-
   const handleDeleteConversation = async (conversationId) => {
     console.log('[page] 🗑️ Suppression conversation:', conversationId);
     
@@ -178,7 +159,6 @@ export default function Home() {
     push('home', true);
     setCurrentConversationId(null);
     setCurrentRoleId(null);
-    setCurrentView('chat'); // 🆕 Réinitialiser la vue
   };
 
   // ✅ CORRECTION 7 : Si pas d'utilisateur, gérer les routes publiques
@@ -212,41 +192,46 @@ export default function Home() {
     }
   }
 
-  // ✅ CORRECTION 9 : Si utilisateur connecté, afficher chat-area ou CV generator
+  // ✅ CORRECTION 9 : Si utilisateur connecté, afficher chat-area
+  // Supprimer le switch et toujours afficher l'interface
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         conversations={conversations || []} // ✅ Toujours passer un tableau
         currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation} // 🆕 Utilise le nouveau handler
+        onSelectConversation={setCurrentConversationId}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
         onSignOut={handleSignOut}
         user={user}
         onSelectRole={handleSelectRole}
         currentRoleId={currentRoleId}
-        onShowCVGenerator={handleShowCVGenerator} // 🆕 Nouveau callback
-        isShowingCV={currentView === 'cv'} // 🆕 État de synchronisation
+        onShowCVGenerator={() => setShowCVGenerator(true)}
       />
-      
-      {/* 🆕 Affichage conditionnel selon la vue */}
-      <div className="flex-1 overflow-hidden">
-        {currentView === 'chat' ? (
-          <ChatArea
-            conversationId={currentConversationId}
-            userId={user?.id}
-            currentRoleId={currentRoleId}
-          />
-        ) : (
-          <div className="h-full overflow-y-auto bg-gradient-to-br from-gray-100 to-gray-200">
-            <GeneratorPage user={user} />
-          </div>
-        )}
-      </div>
+      {showCVGenerator ? (
+        <CVGenerator 
+          user={user} 
+          onGenerate={(data) => {
+            setGeneratedData(data);
+            setShowCVGenerator(false);
+          }} 
+        />
+      ) : generatedData ? (
+        <CVViewer 
+          data={generatedData} 
+          onClose={() => setGeneratedData(null)} 
+        />
+      ) : (
+        <ChatArea
+          conversationId={currentConversationId}
+          userId={user?.id}
+          currentRoleId={currentRoleId}
+        />
+      )}
       
       {/* ✅ CORRECTION 10 : Indicateur de chargement des conversations */}
       {conversationsLoading && (
-        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 flex items-center gap-3 z-50">
+        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 flex items-center gap-3">
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
           <span className="text-sm text-gray-600">Chargement des conversations...</span>
         </div>
