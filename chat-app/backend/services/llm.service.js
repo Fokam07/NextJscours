@@ -1,21 +1,30 @@
 /**
  * Service pour interagir avec le LLM le model IA
- * Avec support de génération de titres intelligents
+ * Avec support de génération de titres intelligents et system prompts personnalisés
  */
 
 import { createPartFromUri, createUserContent, GoogleGenAI } from "@google/genai";
 
 export const llmService = {
   /**
-   * Générer une réponse du LLM
+   * Générer une réponse du LLM (Groq/Llama)
    * @param {Array} messages - Historique des messages [{role, content}]
    * @param {Array} attachments - Fichiers joints (optionnel)
+   * @param {string} systemPrompt - Prompt système personnalisé (optionnel)
    * @returns {Object} - {content, model, tokens}
    */
-  async generateResponse(messages, attachments = []) {
+  async generateResponse(messages, attachments = [], systemPrompt = null) {
     try {
       // Construire le contexte avec les pièces jointes si présentes
       let enrichedMessages = [...messages];
+
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
 
       // Si des images sont attachées, ajouter une note dans le contexte
       if (attachments.length > 0) {
@@ -116,7 +125,7 @@ Titre: Guide touristique Paris`,
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
             messages: messages,
-            temperature: 0.5, // Moins créatif pour plus de cohérence
+            temperature: 0.5,
             max_tokens: 50,
           }),
         },
@@ -149,14 +158,10 @@ Titre: Guide touristique Paris`,
    * @returns {string} - Titre simple
    */
   generateSimpleTitle(message) {
-    // Nettoyer le message
     const cleaned = message.trim();
-
-    // Prendre les 5 premiers mots
     const words = cleaned.split(/\s+/).slice(0, 5);
     let title = words.join(" ");
 
-    // Limiter à 50 caractères
     if (title.length > 50) {
       title = title.substring(0, 47) + "...";
     }
@@ -165,7 +170,7 @@ Titre: Guide touristique Paris`,
   },
 
   /**
-   * Liste des modèles Groq disponibles avec leurs caractéristiques
+   * Liste des modèles Groq disponibles
    */
   getAvailableModels() {
     return [
@@ -204,17 +209,10 @@ Titre: Guide touristique Paris`,
     ];
   },
 
-  /**
-   * Estimer le nombre de tokens dans un texte
-   * (Approximation: 1 token ≈ 4 caractères en français)
-   */
   estimateTokens(text) {
     return Math.ceil(text.length / 4);
   },
 
-  /**
-   * Vérifier si un modèle peut gérer un contexte donné
-   */
   canHandleContext(modelId, messages) {
     const model = this.getAvailableModels().find((m) => m.id === modelId);
     if (!model) return false;
@@ -222,7 +220,7 @@ Titre: Guide touristique Paris`,
     const totalText = messages.map((m) => m.content).join(" ");
     const estimatedTokens = this.estimateTokens(totalText);
 
-    return estimatedTokens < model.maxTokens * 0.8; // Garder 20% de marge
+    return estimatedTokens < model.maxTokens * 0.8;
   },
 
   // async generateCv({offre, poste, exist}) {
@@ -233,62 +231,113 @@ Titre: Guide touristique Paris`,
   // }
 };
 
+// ==================== GEMINI SERVICE ====================
+
 const ai = new GoogleGenAI({});
 const chats = new Map();
 
 export const llmServicer = {
+  /**
+   * Générer une réponse avec Gemini
+   * @param {string} message - Message actuel de l'utilisateur
+   * @param {Array} messages - Historique des messages
+   * @param {Array} attachments - Fichiers joints
+   * @param {string} conversationId - ID de la conversation
+   * @param {string} systemPrompt - Prompt système personnalisé (optionnel)
+   */
   async generateResponse(
     message,
     messages,
     attachments = [],
     conversationId,
+    systemPrompt = null
   ) {
     try {
       let chat = chats.get(conversationId);
+      
       if (!chat) {
-        console.log("cha est null", conversationId, chats)
-        const history = [...messages].map((message) => {
+        console.log("[LLM] Création nouveau chat pour conversation:", conversationId);
+        
+        // Convertir l'historique au format Gemini
+        const history = [...messages].map((msg) => {
           return {
-            role: message.role === 'assistant' ? 'model' : message.role,
-            parts: [{ text: message.content }],
+            role: msg.role === 'assistant' ? 'model' : msg.role,
+            parts: [{ text: msg.content }],
           };
         });
-        chat = ai.chats.create({
-        model: "gemini-2.5-flash",
-        history
-      });
-      chats.set(conversationId, chat);
-      } 
 
-      console.log("attachements", attachments);
+        // Configuration du chat avec system prompt personnalisé
+        const chatConfig = {
+          model: "gemini-2.0-flash-exp",
+          history,
+        };
+
+        // Ajouter le system prompt si fourni
+        if (systemPrompt) {
+          chatConfig.config = {
+            systemInstruction: systemPrompt,
+          };
+          console.log("[LLM] System prompt appliqué:", systemPrompt.substring(0, 100) + "...");
+        }
+
+        chat = ai.chats.create(chatConfig);
+        chats.set(conversationId, chat);
+      }
+
+      // Gérer les pièces jointes
+      console.log("[LLM] Attachements:", attachments.length);
       const attachmentParts = [];
-      for(const at of attachments){
-        const file = await ai.files.upload({file: at.path});
-        if(file.mimeType!=null && file.uri!=null){
-          attachmentParts.push(createPartFromUri(file.uri, file.mimeType));
+      
+      for (const at of attachments) {
+        try {
+          const file = await ai.files.upload({ file: at.path });
+          if (file.mimeType != null && file.uri != null) {
+            attachmentParts.push(createPartFromUri(file.uri, file.mimeType));
+          }
+        } catch (uploadError) {
+          console.error("[LLM] Erreur upload fichier:", uploadError);
         }
       }
-      console.log("part union",[message, ...attachmentParts ] );
+
+      // Envoyer le message avec les pièces jointes
+      console.log("[LLM] Envoi message avec", attachmentParts.length, "pièces jointes");
       const response = await chat.sendMessage({
-        message: createUserContent([message, ...attachmentParts ]) ,
+        message: createUserContent([message, ...attachmentParts]),
         config: {
           temperature: 0.7,
         },
       });
 
-      console.log("la repose est: ", response);
+      console.log("[LLM] Réponse reçue");
       return {
         content: response.text,
-        nodel: response.modelVersion,
-        tokens: response.usageMetadata.totalTokenCount
+        model: response.modelVersion,
+        tokens: response.usageMetadata.totalTokenCount,
       };
 
     } catch (error) {
-     console.error("Erreur gemini LLM:", error);
+      console.error("[LLM] Erreur Gemini:", error);
       throw new Error("Erreur lors de la génération de la réponse");
     }
   },
+
+  /**
+   * Invalider le cache d'un chat (utile si le rôle change)
+   */
+  clearChatCache(conversationId) {
+    if (chats.has(conversationId)) {
+      chats.delete(conversationId);
+      console.log("[LLM] Cache chat supprimé pour:", conversationId);
+    }
+  },
+
+  /**
+   * Obtenir les statistiques des chats en cache
+   */
+  getCacheStats() {
+    return {
+      activeChatCount: chats.size,
+      conversationIds: Array.from(chats.keys()),
+    };
+  },
 };
-
-
-
