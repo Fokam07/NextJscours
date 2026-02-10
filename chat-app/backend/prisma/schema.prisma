@@ -56,3 +56,13 @@ model Message {
   @@index([conversationId])
   @@index([userId])
 }
+
+model Prompt {
+  id        String   @id @default(uuid())
+  name      String   @unique           // ex: "cv_master_prompt"
+  category  String                 // ex: "cv", "system", "template"
+  content   String                 // ton prompt complet
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

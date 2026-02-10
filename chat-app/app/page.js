@@ -10,10 +10,10 @@ import ChatArea from '@/frontend/components/chatArea';
 import GeneratorPage from '@/frontend/components/cvGenerator';
 import { useNavigate } from '@/frontend/hooks/useNavigate';
 import HomePage from '@/frontend/components/home';
+import GeneratorPage from '@/frontend/components/cvGenerator';
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(null);
   const [currentView, setCurrentView] = useState('chat'); // 'chat' ou 'cv'
@@ -143,6 +143,11 @@ export default function Home() {
       }
     }
   };
+
+  const handleSelectConverstion = (conversationId) =>{
+    setCurrentConversationId(conversationId);
+    push('chat-area');
+  }
 
   const handleDeleteConversation = async (conversationId) => {
     console.log('[page] 🗑️ Suppression conversation:', conversationId);
