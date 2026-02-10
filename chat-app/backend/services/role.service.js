@@ -18,7 +18,7 @@ export const roleService = {
       const { data: ownedRoles, error: err1 } = await supabase
         .from('roles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('userid', userId)
         .order('created_at', { ascending: false });
 
       if (err1) throw err1;
@@ -37,7 +37,7 @@ export const roleService = {
             system_prompt,
             icon,
             category,
-            user_id,
+            userid,
             visibility,
             is_active,
             usage_count,
@@ -115,7 +115,7 @@ export const roleService = {
         .from('roles')
         .select('*')
         .eq('id', roleId)
-        .eq('user_id', userId)
+        .eq('userid', userId)
         .maybeSingle();
 
       if (err1) throw err1;
@@ -172,7 +172,7 @@ export const roleService = {
       const { data, error } = await supabase
         .from('roles')
         .insert({
-          user_id: userId,
+          userid: userId,
           name,
           system_prompt,
           description,
@@ -235,7 +235,7 @@ export const roleService = {
         .from('roles')
         .delete()
         .eq('id', roleId)
-        .eq('user_id', userId);
+        .eq('userid', userId);
 
       if (error) throw error;
       return true;
@@ -255,7 +255,7 @@ export const roleService = {
         .from('roles')
         .select('id')
         .eq('id', roleId)
-        .eq('user_id', ownerUserId)
+        .eq('userid', ownerUserId)
         .single();
 
       if (err1 || !role) {
@@ -372,7 +372,7 @@ export const roleService = {
         .from('roles')
         .select('id')
         .eq('id', roleId)
-        .eq('user_id', ownerUserId)
+        .eq('userid', ownerUserId)
         .single();
 
       if (!role) throw new Error('Non autorisé');

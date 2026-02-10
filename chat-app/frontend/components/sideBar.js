@@ -37,13 +37,14 @@ export default function Sidebar({
   }, [activeTab]);
 
   const loadRoles = async () => {
-    setLoadingRoles(true);
-    try {
-      const response = await fetch('/api/roles', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+  setLoadingRoles(true);
+  try {
+    const response = await fetch('/api/roles', {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': user?.id,  // ✅ AJOUTER
+      },
+    });
       
       if (response.ok) {
         const data = await response.json();
@@ -57,10 +58,13 @@ export default function Sidebar({
   };
 
   const handleDeleteRole = async (roleId) => {
-    try {
-      const response = await fetch(`/api/roles/${roleId}`, {
-        method: 'DELETE',
-      });
+  try {
+    const response = await fetch(`/api/roles/${roleId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-user-id': user?.id,  // ✅ AJOUTER
+      },
+    });
       
       if (response.ok) {
         loadRoles(); // Recharger la liste

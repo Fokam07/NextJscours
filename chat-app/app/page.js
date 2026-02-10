@@ -14,7 +14,8 @@ export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
-  const {pop,push, route} = useNavigate();
+  const [currentRoleId, setCurrentRoleId] = useState(null);
+  const { pop, push, route } = useNavigate();
   const {
     conversations,
     createConversation,
@@ -23,7 +24,7 @@ export default function Home() {
   } = useConversations(user?.id);
 
   // Loading state
-  if (authLoading && route!=='login' && route!=='register') {
+  if (authLoading && route !== 'login' && route !== 'register') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
@@ -31,11 +32,52 @@ export default function Home() {
     );
   }
 
-  // Interface principale
+  // Créer une nouvelle conversation en passant le rôle actif
   const handleNewConversation = async () => {
-    const newConv = await createConversation();
+    const newConv = await createConversation(currentRoleId); // ← roleId transmis
     if (newConv) {
       setCurrentConversationId(newConv.id);
+    }
+  };
+
+  // ✅ CORRECTION MAJEURE : Sélectionner un rôle
+  // - met à jour l'état local
+  // - si une conversation est déjà ouverte, change son rôle via l'API
+  const handleSelectRole = async (role) => {
+    const roleId = role?.id || null;
+    
+    console.log('[page] Sélection du rôle:', role?.name || 'Aucun', 'ID:', roleId);
+    setCurrentRoleId(roleId);
+
+    // ✅ Si une conversation est active, changer son rôle immédiatement
+    if (currentConversationId) {
+      try {
+        console.log('[page] Changement de rôle pour conversation:', currentConversationId);
+        const response = await fetch(`/api/conversations/${currentConversationId}/role`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user?.id,
+          },
+          body: JSON.stringify({ roleId }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('[page] Erreur API changement de rôle:', error);
+          alert(`Erreur: ${error.error || 'Impossible de changer de rôle'}`);
+          return;
+        }
+
+        const result = await response.json();
+        console.log('[page] ✅ Rôle changé avec succès:', result);
+        
+        // ✅ IMPORTANT : Informer l'utilisateur que le changement est effectif
+        // Le prochain message utilisera le nouveau rôle
+      } catch (err) {
+        console.error('[page] Erreur changement de rôle:', err);
+        alert('Erreur lors du changement de rôle');
+      }
     }
   };
 
@@ -50,26 +92,29 @@ export default function Home() {
     await signOut();
     push('home', true);
     setCurrentConversationId(null);
+    setCurrentRoleId(null); // ← reset du rôle à la déconnexion
   };
 
-  if(!user){
+  if (!user) {
     switch (route) {
-    case 'home':
-      return <HomePage></HomePage>;
-    case 'login':
-      console.log("losh sur login");
-      return <LoginForm
-        onLogin={signIn}
-        onSwitchToRegister={() => push('register')}
-      />
-    case 'register':
-      return <RegisterForm
-        onRegister={signUp}
-        onSwitchToLogin={() => push('login')}
-      />
+      case 'home':
+        return <HomePage />;
+      case 'login':
+        return (
+          <LoginForm
+            onLogin={signIn}
+            onSwitchToRegister={() => push('register')}
+          />
+        );
+      case 'register':
+        return (
+          <RegisterForm
+            onRegister={signUp}
+            onSwitchToLogin={() => push('login')}
+          />
+        );
     }
   }
-  console.log("la route actuelle ", route)
 
   switch (route) {
     case 'chat-area':
@@ -83,12 +128,17 @@ export default function Home() {
             onDeleteConversation={handleDeleteConversation}
             onSignOut={handleSignOut}
             user={user}
+            onSelectRole={handleSelectRole}  // ← fonction complète qui gère l'objet role
+            currentRoleId={currentRoleId}
           />
-          <ChatArea conversationId={currentConversationId} userId={user?.id} />
+          <ChatArea
+            conversationId={currentConversationId}
+            userId={user?.id}
+            currentRoleId={currentRoleId}
+          />
         </div>
       );
     default:
-      console.log("ca ne sert a rien")
       break;
   }
 }
