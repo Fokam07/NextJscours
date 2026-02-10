@@ -5,7 +5,6 @@ import { useAuth } from "./useAuth";
 
 const navigateContext  = createContext();
 export function NavigateProvider({children}){
-console.log("useNavigate() executé");
   const [route, setRoute] = useState("home");
     const [abrRoute, setAbr] = useState(['home']);
     const {user} = useAuth();

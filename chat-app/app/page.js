@@ -1,26 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useAuth } from '@/frontend/hooks/useAuth';
-import { useConversations } from '@/frontend/hooks/useConversations';
-import LoginForm from '@/frontend/components/loginForm';
-import RegisterForm from '@/frontend/components/registerform';
-import Sidebar from '@/frontend/components/sideBar';
-import ChatArea from '@/frontend/components/chatArea';
-import { useNavigate } from '@/frontend/hooks/useNavigate';
-import HomePage from '@/frontend/components/home';
+import { useEffect, useState } from "react";
+import { useAuth } from "@/frontend/hooks/useAuth";
+import { useConversations } from "@/frontend/hooks/useConversations";
+import LoginForm from "@/frontend/components/loginForm";
+import RegisterForm from "@/frontend/components/registerform";
+import Sidebar from "@/frontend/components/sideBar";
+import ChatArea from "@/frontend/components/chatArea";
+import { useNavigate } from "@/frontend/hooks/useNavigate";
+import HomePage from "@/frontend/components/home";
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
-  const {pop,push, route} = useNavigate();
+  const { push, route } = useNavigate();
+
   const {
     conversations,
     createConversation,
     deleteConversation,
     refreshConversations,
   } = useConversations(user?.id);
+
+  // ✅ NavigateProvider ya maneja la navegación automática
+  // NO duplicar la lógica aquí para evitar loops infinitos
 
   // Loading state
   if (authLoading) {
@@ -31,48 +34,48 @@ export default function Home() {
     );
   }
 
-  // Interface principale
   const handleNewConversation = async () => {
     const newConv = await createConversation();
-    if (newConv) {
-      setCurrentConversationId(newConv.id);
-    }
+    if (newConv) setCurrentConversationId(newConv.id);
   };
 
   const handleDeleteConversation = async (conversationId) => {
     await deleteConversation(conversationId);
-    if (currentConversationId === conversationId) {
-      setCurrentConversationId(null);
-    }
+    if (currentConversationId === conversationId) setCurrentConversationId(null);
   };
 
   const handleSignOut = async () => {
     await signOut();
-    push('home', true);
     setCurrentConversationId(null);
+    push("home", true);
   };
 
-  if(!user){
+  // ✅ Si pas connecté : routes publiques
+  if (!user) {
     switch (route) {
-    case 'home':
-      return <HomePage></HomePage>;
-    case 'login':
-      console.log("losh sur login");
-      return <LoginForm
-        onLogin={signIn}
-        onSwitchToRegister={() => push('register')}
-      />
-    case 'register':
-      return <RegisterForm
-        onRegister={signUp}
-        onSwitchToLogin={() => push('login')}
-      />
+      case "login":
+        return (
+          <LoginForm
+            onLogin={signIn}
+            onSwitchToRegister={() => push("register")}
+          />
+        );
+      case "register":
+        return (
+          <RegisterForm
+            onRegister={signUp}
+            onSwitchToLogin={() => push("login")}
+          />
+        );
+      case "home":
+      default:
+        return <HomePage />;
     }
   }
-  console.log("la route actuelle ", route)
 
+  // ✅ Si connecté : routes privées
   switch (route) {
-    case 'chat-area':
+    case "chat-area":
       return (
         <div className="flex h-screen overflow-hidden">
           <Sidebar
@@ -87,8 +90,13 @@ export default function Home() {
           <ChatArea conversationId={currentConversationId} userId={user?.id} />
         </div>
       );
+
+    // ✅ Important: évite "undefined" si route inconnue
     default:
-      console.log("ca ne sert a rien")
-      break;
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-gray-600">Redirection...</div>
+        </div>
+      );
   }
 }

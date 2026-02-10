@@ -3,8 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { messageService } from '@/backend/services/messagerie.service';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { supabaseAdmin } from '@/backend/lib/supabaseAdmin';
+export const dynamic = 'force-dynamic'; // ✅ évite certaines optimisations build
 
 export async function POST(request, { params }) {
   try {
@@ -82,48 +82,45 @@ export async function POST(request, { params }) {
  * Fonction pour uploader les fichiers
  */
 async function uploadFiles(files, userId, conversationId) {
-  const uploadDir = join(process.cwd(), 'public', 'uploads', userId, conversationId);
-  
-  // Créer le dossier s'il n'existe pas
-  await mkdir(uploadDir, { recursive: true });
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+  const bucket = "attachments";
+
+  // si userId vide, on peut soit bloquer, soit ranger dans "anonymous"
+  const safeUser = userId || "anonymous";
 
   const uploadedFiles = [];
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
   for (const file of files) {
     try {
-      // Vérifier la taille
-      if (file.size > MAX_FILE_SIZE) {
-        console.warn(`Fichier ${file.name} trop volumineux (${file.size} bytes)`);
-        continue;
-      }
+      if (file.size > MAX_FILE_SIZE) continue;
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Générer un nom de fichier unique et sécurisé
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileName = `${timestamp}_${sanitizedName}`;
-      const filePath = join(uploadDir, fileName);
+      const safeName = String(file.name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `${safeUser}/${conversationId}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;
 
-      // Écrire le fichier
-      await writeFile(filePath, buffer);
+      const { error } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(storagePath, buffer, {
+          contentType: file.type || "application/octet-stream",
+          upsert: false,
+        });
 
-      // URL publique du fichier
-      const publicUrl = `/uploads/${userId}/${conversationId}/${fileName}`;
+      if (error) throw error;
 
       uploadedFiles.push({
-        name: file.name,
-        type: file.type,
+        bucket,
+        path: storagePath,
+        fileName: file.name,
+        mimeType: file.type,
         size: file.size,
-        url: publicUrl,
-        path: filePath,
       });
-    } catch (error) {
-      console.error(`Erreur upload fichier ${file.name}:`, error);
+    } catch (e) {
+      console.error(`Erreur upload ${file?.name}:`, e);
     }
   }
 
   return uploadedFiles;
 }
+
