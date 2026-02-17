@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Sidebar({
   conversations,
@@ -16,6 +17,8 @@ export default function Sidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const router = useRouter();
+
 
   const handleDelete = (conversationId) => {
     onDeleteConversation(conversationId);
@@ -212,6 +215,19 @@ export default function Sidebar({
           </svg>
           {(isExpanded || isPinned) && <span>Nouvelle conversation</span>}
         </button>
+        <button
+  onClick={() => router.push('/quiz')}
+  className={`mt-3 w-full bg-gray-800/60 hover:bg-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium border border-gray-700/50 hover:border-purple-500/40 ${
+    !isExpanded && !isPinned ? 'px-0' : 'px-4'
+  }`}
+  title={!isExpanded && !isPinned ? 'Générateur de quiz' : ''}
+>
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-7 4h8a2 2 0 002-2V6a2 2 0 00-2-2H9a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+  {(isExpanded || isPinned) && <span>Générateur de quiz</span>}
+</button>
+
       </div>
 
       {/* Barre de recherche - visible seulement si étendu */}
