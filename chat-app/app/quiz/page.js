@@ -10,7 +10,8 @@ import Sidebar from "@/frontend/components/sideBar";
 function letterToIndex(letter) {
   if (!letter || typeof letter !== "string") return null;
   const L = letter.trim().toUpperCase();
-  const code = L.charCodeAt(0);
+  const firstChar = L[0]; // ✅ CHANGEMENT: prend la première lettre seulement
+  const code = firstChar.charCodeAt(0);
   if (code < 65 || code > 90) return null;
   return code - 65;
 }
@@ -20,18 +21,24 @@ function normalizeBackendResponse(payload) {
   const d = payload?.data ?? payload ?? {};
 
   const jobTitle = d.job_title ?? null;
-  const matchScore = typeof d.matching_score_estimation === "number" ? d.matching_score_estimation : null;
+  const matchScore =
+    typeof d.matching_score_estimation === "number"
+      ? d.matching_score_estimation
+      : null;
 
   const rawQuiz = Array.isArray(d.quiz) ? d.quiz : [];
+
   const questions = rawQuiz.map((q, i) => {
     const type = q?.type ?? "mcq";
+
     const base = {
       id: q?.id ?? `q_${i + 1}`,
       type,
       topic: q?.related_skill ?? null,
-      difficulty: null, // backend ne le fournit pas (pour l’instant)
+      difficulty: null, 
       question: q?.question ?? "",
       explanation: q?.why ?? null,
+      rawCorrectAnswer: q?.correct_answer ?? null,
     };
 
     // MCQ
@@ -47,14 +54,16 @@ function normalizeBackendResponse(payload) {
     }
 
     // TRUE/FALSE
-    if (type === "true_false") {
-      // correct_answer est boolean dans ton exemple
-      const correctBool = typeof q?.correct_answer === "boolean" ? q.correct_answer : null;
+     if (type === "true_false") {
+      const correctBool =
+        typeof q?.correct_answer === "boolean" ? q.correct_answer : null;
+
       return {
         ...base,
         gradable: true,
         choices: ["Vrai", "Faux"],
-        correctBool,
+        answerIndex:
+          correctBool === null ? null : correctBool === true ? 0 : 1,
       };
     }
 

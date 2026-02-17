@@ -1,120 +1,82 @@
+// ✅ CHANGEMENT: garde UNE SEULE version de la fonction (tu l'avais doublée)
 export function normalizeBackendQuiz(payload) {
-  const root = payload?.data ?? payload; // au cas où
-  const quiz = root?.quiz ?? [];
+  const root = payload?.data ?? payload ?? {}; // ✅ CHANGEMENT: sécurise payload null/undefined
+  const quiz = Array.isArray(root?.quiz) ? root.quiz : []; // ✅ CHANGEMENT: force array
 
-  const normalizedQuestions = quiz.map((q) => {
-    // MCQ: options = ["A - ...", "B - ..."]
-    if (q.type === "mcq") {
-      const choices = Array.isArray(q.options) ? q.options : [];
-      const correctLetter = q.correct_answer; // "A" | "B" ...
-      const answerIndex =
-        typeof correctLetter === "string"
-          ? Math.max(0, correctLetter.toUpperCase().charCodeAt(0) - 65)
-          : null;
+  const normalizedQuestions = quiz.map((q, idx) => {
+    const type = q?.type ?? "open"; // ✅ CHANGEMENT: type safe
+    const id = q?.id ?? `q_${idx + 1}`; // ✅ CHANGEMENT: fallback id
+
+    // Champs communs (alignés avec tes pages)
+    const base = {
+      id,
+      type,
+      question: q?.question ?? "",
+     
+      choices: [],
+      
+      answerIndex: null,
+      
+      correctBool: null,
+
+      explanation: q?.why ?? null,
+      topic: q?.related_skill ?? null,
+
+     
+      
+      gradable: false,
+    };
+
+    // ─────────────────────────────
+    // MCQ
+    // ─────────────────────────────
+    if (type === "mcq") {
+      const choices = Array.isArray(q?.options) ? q.options : [];
+
+      // ✅ CHANGEMENT: calc answerIndex seulement si letter valide A-Z
+      const letter = typeof q?.correct_answer === "string" ? q.correct_answer.trim().toUpperCase() : "";
+      const code = letter ? letter.charCodeAt(0) : NaN;
+      const answerIndex = code >= 65 && code <= 90 ? code - 65 : null;
 
       return {
-        id: q.id,
-        type: "mcq",
-        question: q.question,
+        ...base,
+        gradable: typeof answerIndex === "number", // ✅ CHANGEMENT: gradable si on peut corriger
         choices,
         answerIndex,
-        correctBool: null,
-        why: q.why ?? null,
-        relatedSkill: q.related_skill ?? null,
       };
     }
 
-    // TRUE/FALSE
-    if (q.type === "true_false") {
+    // ─────────────────────────────
+    // TRUE / FALSE
+    // ─────────────────────────────
+    if (type === "true_false") {
+      const correctBool = typeof q?.correct_answer === "boolean" ? q.correct_answer : null;
+
+      // ✅ CHANGEMENT IMPORTANT: on met aussi answerIndex (0=Vrai, 1=Faux)
+      const answerIndex = correctBool === null ? null : (correctBool ? 0 : 1);
+
       return {
-        id: q.id,
-        type: "true_false",
-        question: q.question,
+        ...base,
+        gradable: typeof answerIndex === "number", // ✅ CHANGEMENT
         choices: ["Vrai", "Faux"],
-        answerIndex: null,
-        correctBool: Boolean(q.correct_answer),
-        why: q.why ?? null,
-        relatedSkill: q.related_skill ?? null,
+        correctBool, // optionnel
+        answerIndex, // ✅ CHANGEMENT
       };
     }
 
-    // OPEN / SCENARIO (pas de correction auto)
     return {
-      id: q.id,
-      type: q.type || "open",
-      question: q.question,
-      choices: null,
-      answerIndex: null,
-      correctBool: null,
-      why: q.why ?? null,
-      relatedSkill: q.related_skill ?? null,
+      ...base,
+      gradable: false,
+      
     };
   });
 
   return {
-    quizId: root?.job_title ? `quiz_${Date.now()}` : `quiz_${Date.now()}`,
+    
+    quizId: `quiz_${Date.now()}`,
     jobTitle: root?.job_title ?? null,
-    scoreMatch: root?.matching_score_estimation ?? null,
+    scoreMatch: typeof root?.matching_score_estimation === "number" ? root.matching_score_estimation : null, // ✅ CHANGEMENT: check number
     questions: normalizedQuestions,
   };
 }
-export function normalizeBackendQuiz(payload) {
-  const root = payload?.data ?? payload; // au cas où
-  const quiz = root?.quiz ?? [];
 
-  const normalizedQuestions = quiz.map((q) => {
-    // MCQ: options = ["A - ...", "B - ..."]
-    if (q.type === "mcq") {
-      const choices = Array.isArray(q.options) ? q.options : [];
-      const correctLetter = q.correct_answer; // "A" | "B" ...
-      const answerIndex =
-        typeof correctLetter === "string"
-          ? Math.max(0, correctLetter.toUpperCase().charCodeAt(0) - 65)
-          : null;
-
-      return {
-        id: q.id,
-        type: "mcq",
-        question: q.question,
-        choices,
-        answerIndex,
-        correctBool: null,
-        why: q.why ?? null,
-        relatedSkill: q.related_skill ?? null,
-      };
-    }
-
-    // TRUE/FALSE
-    if (q.type === "true_false") {
-      return {
-        id: q.id,
-        type: "true_false",
-        question: q.question,
-        choices: ["Vrai", "Faux"],
-        answerIndex: null,
-        correctBool: Boolean(q.correct_answer),
-        why: q.why ?? null,
-        relatedSkill: q.related_skill ?? null,
-      };
-    }
-
-    // OPEN / SCENARIO (pas de correction auto)
-    return {
-      id: q.id,
-      type: q.type || "open",
-      question: q.question,
-      choices: null,
-      answerIndex: null,
-      correctBool: null,
-      why: q.why ?? null,
-      relatedSkill: q.related_skill ?? null,
-    };
-  });
-
-  return {
-    quizId: root?.job_title ? `quiz_${Date.now()}` : `quiz_${Date.now()}`,
-    jobTitle: root?.job_title ?? null,
-    scoreMatch: root?.matching_score_estimation ?? null,
-    questions: normalizedQuestions,
-  };
-}
