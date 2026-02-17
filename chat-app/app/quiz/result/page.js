@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getQuizSession, resetQuizProgress, clearQuizSession } from "@/frontend/services/quizSession.service";
+import {
+  getQuizSession,
+  resetQuizProgress,
+  clearQuizSession,
+} from "@/frontend/services/quizSession.service";
 import Sidebar from "@/frontend/components/sideBar";
 
 function getRankData(percent) {
@@ -69,24 +73,35 @@ export default function QuizResultPage({ sidebarProps = {} }) {
     setSession(s);
   }, [router]);
 
-  const total = session?.questions?.length || 0;
+  // total questions (toutes)
+  const totalAll = session?.questions?.length || 0;
+
+  // ✅ total questions corrigibles (mcq + true_false)
+  const totalGradable = useMemo(() => {
+    const qs = session?.questions || [];
+    return qs.filter((q) => q?.gradable === true || q?.type === "mcq" || q?.type === "true_false").length;
+  }, [session]);
+
+  // score est déjà calculé dans /play pour les questions corrigibles
   const score = session?.score || 0;
 
+  // ✅ percent basé sur gradable seulement
   const percent = useMemo(() => {
-    if (!total) return 0;
-    return Math.round((score / total) * 100);
-  }, [score, total]);
+    if (!totalGradable) return 0;
+    return Math.round((score / totalGradable) * 100);
+  }, [score, totalGradable]);
 
   const rankData = useMemo(() => getRankData(percent), [percent]);
 
+  // ✅ Filtrer les answers correct/wrong uniquement si correct est boolean
   const correctAnswers = useMemo(() => {
     if (!session?.answers) return [];
-    return session.answers.filter((a) => a.correct);
+    return session.answers.filter((a) => a?.correct === true);
   }, [session]);
 
   const wrongAnswers = useMemo(() => {
     if (!session?.answers) return [];
-    return session.answers.filter((a) => !a.correct);
+    return session.answers.filter((a) => a?.correct === false);
   }, [session]);
 
   const handleRestartSameQuiz = () => {
@@ -107,7 +122,8 @@ export default function QuizResultPage({ sidebarProps = {} }) {
     <div
       className="min-h-screen text-[hsl(42,30%,82%)]"
       style={{
-        background: "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)",
+        background:
+          "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)",
       }}
     >
       {/* ── Sidebar drawer overlay ── */}
@@ -153,17 +169,22 @@ export default function QuizResultPage({ sidebarProps = {} }) {
         }}
       >
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-4">
-          {/* Bouton hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-[hsl(260,15%,14%)]"
             style={{ border: "1px solid hsl(260,15%,18%)" }}
             title="Ouvrir le menu"
           >
-            <svg className="w-5 h-5 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5 text-[hsl(42,50%,54%)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
+
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{
@@ -176,6 +197,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
           </div>
+
           <div>
             <h1 className="text-lg font-bold tracking-widest uppercase text-[hsl(42,50%,60%)]">
               Résultats de l'Épreuve
@@ -183,6 +205,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
             <p className="text-xs text-[hsl(42,30%,45%)] tracking-wide">Jugement du Sorcier Suprême</p>
           </div>
         </div>
+
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-3 translate-y-1/2">
           <div className="w-20 h-px bg-gradient-to-r from-transparent to-[hsl(42,50%,54%,0.4)]" />
           <div className="w-2 h-2 border border-[hsl(42,50%,54%,0.6)] rotate-45 bg-[hsl(260,25%,7%)]" />
@@ -191,7 +214,6 @@ export default function QuizResultPage({ sidebarProps = {} }) {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-12 relative z-10">
-
         {/* Carte Score principale */}
         <div
           className="rounded-2xl p-8 mb-6 border"
@@ -202,18 +224,22 @@ export default function QuizResultPage({ sidebarProps = {} }) {
           }}
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            {/* Score numérique */}
             <div>
               <div className="text-6xl font-extrabold tracking-tight" style={{ color: "hsl(42,50%,65%)" }}>
                 {score}
-                <span className="text-3xl text-[hsl(42,30%,40%)] font-normal">/{total}</span>
+                <span className="text-3xl text-[hsl(42,30%,40%)] font-normal">/{totalGradable || 0}</span>
               </div>
-              <div className="mt-1 text-sm text-[hsl(42,30%,45%)] tracking-wide">
-                {percent}% de réussite
+
+              <div className="mt-1 text-sm text-[hsl(42,30%,45%)] tracking-wide">{percent}% de réussite</div>
+
+              {/* ✅ info utile */}
+              <div className="mt-2 text-xs text-[hsl(42,30%,38%)]">
+                Questions totales : <span className="text-[hsl(42,30%,55%)] font-semibold">{totalAll}</span>{" "}
+                · Corrigées automatiquement :{" "}
+                <span className="text-[hsl(42,30%,55%)] font-semibold">{totalGradable}</span>
               </div>
             </div>
 
-            {/* Badge de rang */}
             <div
               className="px-5 py-3 rounded-xl border text-right"
               style={{
@@ -222,10 +248,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
                 boxShadow: `0 0 20px ${rankData.style.glow}`,
               }}
             >
-              <div
-                className="text-2xl font-extrabold tracking-widest mb-0.5"
-                style={{ color: rankData.style.text }}
-              >
+              <div className="text-2xl font-extrabold tracking-widest mb-0.5" style={{ color: rankData.style.text }}>
                 Rang {rankData.rank}
               </div>
               <div className="text-sm font-bold tracking-wide" style={{ color: rankData.style.text }}>
@@ -237,12 +260,8 @@ export default function QuizResultPage({ sidebarProps = {} }) {
             </div>
           </div>
 
-          {/* Barre de progression */}
           <div className="mt-7">
-            <div
-              className="w-full h-2.5 rounded-full overflow-hidden"
-              style={{ background: "hsl(260,20%,15%)" }}
-            >
+            <div className="w-full h-2.5 rounded-full overflow-hidden" style={{ background: "hsl(260,20%,15%)" }}>
               <div
                 className="h-2.5 rounded-full transition-all duration-700"
                 style={{
@@ -258,7 +277,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
             </div>
           </div>
 
-          {/* Score CV↔Offre optionnel */}
+          {/* Score CV↔Offre */}
           {session.meta?.scoreMatch !== null && session.meta?.scoreMatch !== undefined && (
             <div
               className="mt-5 p-3 rounded-lg border flex items-center gap-3"
@@ -267,19 +286,28 @@ export default function QuizResultPage({ sidebarProps = {} }) {
                 borderColor: "hsl(260,15%,16%)",
               }}
             >
-              <svg className="w-4 h-4 text-[hsl(42,50%,54%,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              <svg
+                className="w-4 h-4 text-[hsl(42,50%,54%,0.6)]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                />
               </svg>
               <span className="text-sm text-[hsl(42,30%,55%)]">
                 Pertinence CV ↔ Offre :{" "}
-                <span className="font-bold text-[hsl(42,50%,65%)]">{session.meta.scoreMatch}</span>
-                /100
+                <span className="font-bold text-[hsl(42,50%,65%)]">{session.meta.scoreMatch}</span>/100
               </span>
             </div>
           )}
         </div>
 
-        {/* Résumé par bonne/mauvaise réponse */}
+        {/* Résumé bonnes/mauvaises réponses */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div
             className="rounded-xl p-5 border text-center"
@@ -303,7 +331,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
           </div>
         </div>
 
-        {/* Boutons d'action */}
+        {/* Boutons */}
         <div className="flex flex-wrap gap-3">
           <button
             onClick={handleRestartSameQuiz}
@@ -338,23 +366,10 @@ export default function QuizResultPage({ sidebarProps = {} }) {
               border: "1px solid hsl(260,15%,22%)",
               color: "hsl(42,30%,48%)",
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "hsl(260,20%,14%)";
-              e.currentTarget.style.borderColor = "hsl(42,50%,54%,0.2)";
-              e.currentTarget.style.color = "hsl(42,30%,65%)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "hsl(260,20%,12%)";
-              e.currentTarget.style.borderColor = "hsl(260,15%,22%)";
-              e.currentTarget.style.color = "hsl(42,30%,48%)";
-            }}
             title="Retour au chat"
           >
             <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             Chat
           </button>
@@ -364,7 +379,7 @@ export default function QuizResultPage({ sidebarProps = {} }) {
         <div className="mt-10 flex justify-center items-center gap-4">
           <div className="w-24 h-px bg-gradient-to-r from-transparent to-[hsl(42,50%,54%,0.2)]" />
           <svg className="w-5 h-5 text-[hsl(42,50%,54%,0.25)]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z" />
+            <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10z" />
           </svg>
           <div className="w-24 h-px bg-gradient-to-l from-transparent to-[hsl(42,50%,54%,0.2)]" />
         </div>

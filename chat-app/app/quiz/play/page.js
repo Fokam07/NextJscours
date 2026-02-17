@@ -8,102 +8,6 @@ import {
   clearQuizSession,
 } from "@/frontend/services/quizSession.service";
 
-function seedFakeSession() {
-  return {
-    quizId: "demo_" + Date.now(),
-    questions: [
-      {
-        id: "q1",
-        topic: "React",
-        difficulty: "easy",
-        question: "À quoi sert useState ?",
-        choices: [
-          "À gérer l'état local d'un composant",
-          "À faire des requêtes HTTP automatiquement",
-          "À créer des routes Next.js",
-          "À compiler Tailwind CSS",
-        ],
-        answerIndex: 0,
-        explanation:
-          "useState permet de stocker et mettre à jour un état local dans un composant React.",
-      },
-      {
-        id: "q2",
-        topic: "JavaScript",
-        difficulty: "medium",
-        question: "Quelle est la différence entre == et === ?",
-        choices: [
-          "Aucune différence",
-          "=== compare aussi le type, == peut convertir (coercion)",
-          "== compare aussi le type, === peut convertir",
-          "=== ne marche que sur les nombres",
-        ],
-        answerIndex: 1,
-        explanation:
-          "=== est une comparaison stricte (valeur + type). == peut faire de la coercion de type.",
-      },
-      {
-        id: "q3",
-        topic: "Next.js",
-        difficulty: "medium",
-        question: "Avec App Router, où place-t-on un endpoint /api/test ?",
-        choices: [
-          "pages/api/test.js",
-          "app/api/test/route.js",
-          "app/test/api.js",
-          "src/api/test.ts",
-        ],
-        answerIndex: 1,
-        explanation:
-          "En App Router, les routes API sont dans app/api/<route>/route.js.",
-      },
-      {
-        id: "q4",
-        topic: "SQL",
-        difficulty: "easy",
-        question: "Que fait la clause WHERE en SQL ?",
-        choices: [
-          "Elle trie les résultats",
-          "Elle limite le nombre de lignes",
-          "Elle filtre les lignes selon une condition",
-          "Elle renomme une colonne",
-        ],
-        answerIndex: 2,
-        explanation:
-          "WHERE sert à filtrer les lignes selon une condition (ex: WHERE age > 18).",
-      },
-      {
-        id: "q5",
-        topic: "DevOps",
-        difficulty: "medium",
-        question: "Quel est l'objectif principal d'un Dockerfile ?",
-        choices: [
-          "Dessiner l'architecture du système",
-          "Décrire comment construire une image Docker",
-          "Optimiser les performances du CPU",
-          "Gérer les permissions Linux uniquement",
-        ],
-        answerIndex: 1,
-        explanation:
-          "Un Dockerfile décrit les étapes pour construire une image Docker (base image, commandes, etc.).",
-      },
-    ],
-    currentIndex: 0,
-    answers: [],
-    score: 0,
-    startedAt: new Date().toISOString(),
-    finishedAt: null,
-    meta: {
-      scoreMatch: 68,
-      cvSkills: ["React", "Node.js", "Docker", "SQL"],
-      jobSkills: ["React", "Next.js", "TypeScript", "Docker"],
-      matchedSkills: ["React", "Docker"],
-      missingSkills: ["Next.js", "TypeScript"],
-      decision: "MATCH_LOW",
-    },
-  };
-}
-
 const DIFFICULTY_COLORS = {
   easy: { bg: "hsl(142,40%,15%,0.6)", border: "hsl(142,50%,30%,0.5)", text: "hsl(142,50%,65%)" },
   medium: { bg: "hsl(42,50%,15%,0.6)", border: "hsl(42,50%,40%,0.5)", text: "hsl(42,50%,65%)" },
@@ -115,34 +19,38 @@ export default function QuizPlayPage() {
 
   const [session, setSession] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [typedAnswer, setTypedAnswer] = useState("");
   const [showResult, setShowResult] = useState(false);
 
-  const seededRef = useRef(false);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    if (seededRef.current) return;
-    seededRef.current = true;
+    if (mountedRef.current) return;
+    mountedRef.current = true;
 
-    let s = getQuizSession();
+    const s = getQuizSession();
 
+    // ✅ Plus de seed fictif ici
     if (!s || !Array.isArray(s.questions) || s.questions.length === 0) {
-      s = seedFakeSession();
-      saveQuizSession(s);
+      setSession(null);
+      return;
     }
 
-    if (typeof s.currentIndex !== "number" || s.currentIndex < 0) {
-      s.currentIndex = 0;
-      saveQuizSession(s);
-    }
-    if (s.currentIndex >= s.questions.length) {
-      s.currentIndex = Math.max(0, s.questions.length - 1);
-      saveQuizSession(s);
-    }
+    // ✅ sécurise currentIndex
+    const safe = { ...s };
+    if (typeof safe.currentIndex !== "number" || safe.currentIndex < 0) safe.currentIndex = 0;
+    if (safe.currentIndex >= safe.questions.length) safe.currentIndex = Math.max(0, safe.questions.length - 1);
 
-    setSession(s);
+    saveQuizSession(safe);
+    setSession(safe);
   }, []);
 
   const total = session?.questions?.length || 0;
+
+  const gradableTotal = useMemo(() => {
+    if (!session?.questions) return 0;
+    return session.questions.filter((q) => q.gradable).length;
+  }, [session]);
 
   const currentQuestion = useMemo(() => {
     if (!session) return null;
@@ -166,14 +74,25 @@ export default function QuizPlayPage() {
     router.push("/quiz/result");
   };
 
+  const gradeMcq = (q, idx) => typeof q.answerIndex === "number" && idx === q.answerIndex;
+
+  const gradeTrueFalse = (q, idx) => {
+    // idx 0 => Vrai, idx 1 => Faux
+    const picked = idx === 0;
+    return picked === Boolean(q.correctBool);
+  };
+
   const handlePick = (idx) => {
     if (!session || !currentQuestion) return;
     if (showResult) return;
+    if (!currentQuestion.gradable) return;
 
     setSelectedIndex(idx);
     setShowResult(true);
 
-    const isCorrect = idx === currentQuestion.answerIndex;
+    let isCorrect = false;
+    if (currentQuestion.type === "mcq") isCorrect = gradeMcq(currentQuestion, idx);
+    if (currentQuestion.type === "true_false") isCorrect = gradeTrueFalse(currentQuestion, idx);
 
     const updated = {
       ...session,
@@ -181,11 +100,41 @@ export default function QuizPlayPage() {
         ...session.answers,
         {
           questionId: currentQuestion.id ?? `q_${session.currentIndex}`,
+          type: currentQuestion.type,
           selectedIndex: idx,
+          text: null,
           correct: isCorrect,
         },
       ],
       score: session.score + (isCorrect ? 1 : 0),
+    };
+
+    saveQuizSession(updated);
+    setSession(updated);
+  };
+
+  const handleSubmitText = () => {
+    if (!session || !currentQuestion) return;
+    if (showResult) return;
+    if (currentQuestion.gradable) return;
+
+    const txt = (typedAnswer || "").trim();
+    if (!txt) return;
+
+    setShowResult(true);
+
+    const updated = {
+      ...session,
+      answers: [
+        ...session.answers,
+        {
+          questionId: currentQuestion.id ?? `q_${session.currentIndex}`,
+          type: currentQuestion.type,
+          selectedIndex: null,
+          text: txt,
+          correct: null,
+        },
+      ],
     };
 
     saveQuizSession(updated);
@@ -213,46 +162,59 @@ export default function QuizPlayPage() {
     setSession(updated);
 
     setSelectedIndex(null);
+    setTypedAnswer("");
     setShowResult(false);
   };
 
-  const handleNew = () => {
+  const handleClearAndGoGenerate = () => {
     clearQuizSession();
-    const fresh = seedFakeSession();
-    saveQuizSession(fresh);
-    setSession(fresh);
-    setSelectedIndex(null);
-    setShowResult(false);
+    router.push("/quiz/generate"); // ✅ à créer
   };
 
-  if (!session) return null;
-
-  if (!currentQuestion) {
+  // ✅ Si aucune session : écran propre
+  if (!session) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)" }}
+        className="min-h-screen flex items-center justify-center text-[hsl(42,30%,82%)]"
+        style={{
+          background: "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)",
+        }}
       >
-        <div className="text-center space-y-5 p-8">
-          <p className="text-[hsl(42,30%,65%)]">Session invalide ou épreuve terminée.</p>
+        <div className="max-w-md w-full p-8 rounded-2xl border"
+          style={{ background: "hsl(260,20%,10%)", borderColor: "hsl(260,15%,18%)" }}
+        >
+          <h1 className="text-xl font-bold mb-2" style={{ color: "hsl(42,40%,85%)" }}>
+            Aucun quiz en cours
+          </h1>
+          <p className="text-sm mb-6 text-[hsl(42,30%,65%)]">
+            Génère un quiz à partir de ton CV et de l’offre, puis reviens ici pour le jouer.
+          </p>
+
           <button
-            onClick={handleNew}
-            className="px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-sm text-[hsl(42,50%,70%)]"
+            onClick={handleClearAndGoGenerate}
+            className="w-full px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-sm transition-all"
             style={{
               background: "linear-gradient(135deg, hsl(0,60%,28%), hsl(30,50%,30%))",
+              color: "hsl(42,50%,75%)",
               border: "1px solid hsl(0,50%,40%,0.5)",
               boxShadow: "0 0 20px rgba(139,0,0,0.3)",
             }}
           >
-            Recommencer l'Épreuve
+            Générer un quiz
           </button>
         </div>
       </div>
     );
   }
 
-  const correctIndex = currentQuestion.answerIndex;
-  const isCorrect = showResult && selectedIndex === correctIndex;
+  if (!currentQuestion) return null;
+
+  // ✅ Pour afficher résultat gradable
+  let correctIndex = null;
+  if (currentQuestion.type === "mcq") correctIndex = currentQuestion.answerIndex;
+  if (currentQuestion.type === "true_false") correctIndex = currentQuestion.correctBool ? 0 : 1;
+  const isCorrect = showResult && currentQuestion.gradable && selectedIndex === correctIndex;
+
   const diffStyle = DIFFICULTY_COLORS[currentQuestion.difficulty] || DIFFICULTY_COLORS.medium;
 
   return (
@@ -262,16 +224,7 @@ export default function QuizPlayPage() {
         background: "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)",
       }}
     >
-      {/* Motif de fond */}
-      <div
-        className="fixed inset-0 pointer-events-none opacity-[0.025]"
-        style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, hsl(42,50%,54%) 1px, transparent 0)`,
-          backgroundSize: "40px 40px",
-        }}
-      />
-
-      {/* Barre supérieure sticky */}
+      {/* Barre sticky */}
       <div
         className="sticky top-0 z-30 border-b"
         style={{
@@ -281,7 +234,6 @@ export default function QuizPlayPage() {
         }}
       >
         <div className="max-w-3xl mx-auto px-6 py-3">
-          {/* Progress bar */}
           <div className="w-full h-1 rounded-full mb-3 overflow-hidden" style={{ background: "hsl(260,15%,14%)" }}>
             <div
               className="h-1 rounded-full transition-all duration-500"
@@ -294,35 +246,22 @@ export default function QuizPlayPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[hsl(0,60%,35%,0.2)] border border-[hsl(0,60%,35%,0.4)] flex items-center justify-center">
-                <svg className="w-4 h-4 text-[hsl(42,50%,60%)]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z" />
-                </svg>
-              </div>
-              <span className="text-sm font-bold tracking-widest uppercase text-[hsl(42,50%,60%)]">
-                {progressLabel}
-              </span>
-            </div>
+            <span className="text-sm font-bold tracking-widest uppercase text-[hsl(42,50%,60%)]">
+              {progressLabel}
+            </span>
 
             <div className="flex gap-2">
               <button
-                onClick={handleNew}
+                onClick={handleClearAndGoGenerate}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide uppercase transition-all text-[hsl(42,30%,55%)] hover:text-[hsl(42,30%,75%)]"
-                style={{
-                  border: "1px solid hsl(260,15%,18%)",
-                  background: "hsl(260,20%,10%)",
-                }}
+                style={{ border: "1px solid hsl(260,15%,18%)", background: "hsl(260,20%,10%)" }}
               >
-                Recharger
+                Nouveau quiz
               </button>
               <button
                 onClick={handleStop}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide uppercase transition-all text-[hsl(0,40%,60%)] hover:text-[hsl(0,40%,75%)]"
-                style={{
-                  border: "1px solid hsl(0,40%,25%,0.5)",
-                  background: "hsl(0,40%,12%,0.5)",
-                }}
+                style={{ border: "1px solid hsl(0,40%,25%,0.5)", background: "hsl(0,40%,12%,0.5)" }}
               >
                 Abandonner
               </button>
@@ -331,17 +270,16 @@ export default function QuizPlayPage() {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-10 relative z-10">
-        {/* Carte question */}
+      {/* Contenu */}
+      <div className="max-w-3xl mx-auto px-6 py-10">
         <div
           className="rounded-2xl p-7 mb-6 border"
           style={{
             background: "hsl(260,20%,10%)",
             borderColor: "hsl(260,15%,18%)",
-            boxShadow: "0 0 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(212,175,55,0.05)",
+            boxShadow: "0 0 40px rgba(0,0,0,0.4)",
           }}
         >
-          {/* Badges topic + difficulty */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
             {currentQuestion.topic && (
               <span
@@ -355,6 +293,7 @@ export default function QuizPlayPage() {
                 {currentQuestion.topic}
               </span>
             )}
+
             {currentQuestion.difficulty && (
               <span
                 className="text-xs px-3 py-1 rounded-lg font-semibold tracking-wider uppercase"
@@ -367,140 +306,130 @@ export default function QuizPlayPage() {
                 {currentQuestion.difficulty}
               </span>
             )}
+
+            <span
+              className="text-xs px-3 py-1 rounded-lg font-semibold tracking-wider uppercase"
+              style={{
+                background: "hsl(260,25%,7%,0.5)",
+                border: "1px solid hsl(260,15%,18%)",
+                color: "hsl(42,30%,65%)",
+              }}
+            >
+              {currentQuestion.type}
+            </span>
           </div>
 
-          {/* Question */}
-          <h1
-            className="text-lg font-bold mb-7 leading-relaxed"
-            style={{ color: "hsl(42,40%,85%)" }}
-          >
+          <h1 className="text-lg font-bold mb-7 leading-relaxed" style={{ color: "hsl(42,40%,85%)" }}>
             {currentQuestion.question}
           </h1>
 
-          {/* Choix */}
-          <div className="space-y-3">
-            {(currentQuestion.choices || []).map((choice, idx) => {
-              const isPicked = selectedIndex === idx;
-              const isCorrectChoice = showResult && idx === correctIndex;
-              const isWrongPicked = showResult && isPicked && idx !== correctIndex;
+          {/* MCQ + TRUE/FALSE */}
+          {currentQuestion.gradable && (
+            <div className="space-y-3">
+              {(currentQuestion.choices || []).map((choice, idx) => {
+                const isPicked = selectedIndex === idx;
+                const isCorrectChoice = showResult && idx === correctIndex;
+                const isWrongPicked = showResult && isPicked && idx !== correctIndex;
 
-              let btnStyle = {
-                background: "hsl(260,25%,7%,0.6)",
-                border: "1px solid hsl(260,15%,18%)",
-                color: "hsl(42,30%,75%)",
-              };
-              if (!showResult && isPicked) {
-                btnStyle = {
-                  background: "hsl(42,50%,15%,0.6)",
-                  border: "1px solid hsl(42,50%,40%,0.5)",
-                  color: "hsl(42,50%,80%)",
+                let btnStyle = {
+                  background: "hsl(260,25%,7%,0.6)",
+                  border: "1px solid hsl(260,15%,18%)",
+                  color: "hsl(42,30%,75%)",
                 };
-              }
-              if (isCorrectChoice) {
-                btnStyle = {
-                  background: "hsl(142,40%,12%,0.8)",
-                  border: "1px solid hsl(142,50%,35%,0.6)",
-                  color: "hsl(142,50%,75%)",
-                  boxShadow: "0 0 15px rgba(50,180,80,0.1)",
-                };
-              }
-              if (isWrongPicked) {
-                btnStyle = {
-                  background: "hsl(0,50%,12%,0.8)",
-                  border: "1px solid hsl(0,50%,35%,0.6)",
-                  color: "hsl(0,50%,75%)",
-                  boxShadow: "0 0 15px rgba(180,50,50,0.1)",
-                };
-              }
+                if (!showResult && isPicked) {
+                  btnStyle = {
+                    background: "hsl(42,50%,15%,0.6)",
+                    border: "1px solid hsl(42,50%,40%,0.5)",
+                    color: "hsl(42,50%,80%)",
+                  };
+                }
+                if (isCorrectChoice) {
+                  btnStyle = {
+                    background: "hsl(142,40%,12%,0.8)",
+                    border: "1px solid hsl(142,50%,35%,0.6)",
+                    color: "hsl(142,50%,75%)",
+                  };
+                }
+                if (isWrongPicked) {
+                  btnStyle = {
+                    background: "hsl(0,50%,12%,0.8)",
+                    border: "1px solid hsl(0,50%,35%,0.6)",
+                    color: "hsl(0,50%,75%)",
+                  };
+                }
 
-              return (
-                <button
-                  key={idx}
-                  onClick={() => handlePick(idx)}
-                  disabled={showResult}
-                  className="w-full text-left p-4 rounded-xl transition-all flex items-start gap-4 group"
-                  style={{
-                    ...btnStyle,
-                    cursor: showResult ? "default" : "pointer",
-                  }}
-                >
-                  {/* Lettre d'index */}
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold tracking-wider transition-all"
-                    style={{
-                      background: isCorrectChoice
-                        ? "hsl(142,50%,25%,0.6)"
-                        : isWrongPicked
-                        ? "hsl(0,50%,25%,0.6)"
-                        : isPicked && !showResult
-                        ? "hsl(42,50%,25%,0.6)"
-                        : "hsl(260,20%,16%)",
-                      color: isCorrectChoice
-                        ? "hsl(142,50%,75%)"
-                        : isWrongPicked
-                        ? "hsl(0,50%,75%)"
-                        : isPicked && !showResult
-                        ? "hsl(42,50%,75%)"
-                        : "hsl(42,30%,50%)",
-                      border: "1px solid currentColor",
-                    }}
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handlePick(idx)}
+                    disabled={showResult}
+                    className="w-full text-left p-4 rounded-xl transition-all"
+                    style={{ ...btnStyle, cursor: showResult ? "default" : "pointer" }}
                   >
-                    {String.fromCharCode(65 + idx)}
-                  </div>
-                  <span className="text-sm leading-relaxed mt-0.5">{choice}</span>
-                </button>
-              );
-            })}
-          </div>
+                    {choice}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-          {/* Explication */}
-          {showResult && (
-            <div
-              className="mt-6 p-5 rounded-xl border"
-              style={
-                isCorrect
-                  ? {
-                      background: "hsl(142,40%,10%,0.7)",
-                      border: "1px solid hsl(142,50%,30%,0.5)",
-                    }
-                  : {
-                      background: "hsl(0,50%,10%,0.7)",
-                      border: "1px solid hsl(0,50%,30%,0.5)",
-                    }
-              }
-            >
-              <div
-                className="font-bold mb-2 text-sm tracking-wide uppercase flex items-center gap-2"
-                style={{ color: isCorrect ? "hsl(142,50%,65%)" : "hsl(0,50%,65%)" }}
+          {/* OPEN + SCENARIO */}
+          {!currentQuestion.gradable && (
+            <div className="space-y-3">
+              <textarea
+                value={typedAnswer}
+                onChange={(e) => setTypedAnswer(e.target.value)}
+                disabled={showResult}
+                placeholder="Écris ta réponse ici..."
+                className="w-full min-h-[140px] rounded-xl p-4 outline-none text-sm"
+                style={{
+                  background: "hsl(260,25%,7%,0.6)",
+                  border: "1px solid hsl(260,15%,18%)",
+                  color: "hsl(42,30%,75%)",
+                }}
+              />
+              <button
+                onClick={handleSubmitText}
+                disabled={showResult || !typedAnswer.trim()}
+                className="px-5 py-3 rounded-xl font-bold tracking-widest uppercase text-sm transition-all"
+                style={
+                  showResult || !typedAnswer.trim()
+                    ? {
+                        background: "hsl(260,15%,14%)",
+                        color: "hsl(260,10%,35%)",
+                        border: "1px solid hsl(260,15%,18%)",
+                        cursor: "not-allowed",
+                      }
+                    : {
+                        background: "linear-gradient(135deg, hsl(0,60%,28%), hsl(30,50%,30%))",
+                        color: "hsl(42,50%,75%)",
+                        border: "1px solid hsl(0,50%,40%,0.5)",
+                      }
+                }
               >
-                <span>{isCorrect ? "✦ Bonne réponse" : "✦ Mauvaise réponse"}</span>
+                Valider la réponse
+              </button>
+            </div>
+          )}
+
+          {showResult && (
+            <div className="mt-6 p-5 rounded-xl border" style={{ borderColor: "hsl(260,15%,18%)", background: "hsl(260,25%,7%,0.4)" }}>
+              <div className="font-bold text-sm tracking-wide uppercase">
+                {currentQuestion.gradable ? (isCorrect ? "Bonne réponse ✅" : "Mauvaise réponse ❌") : "Réponse enregistrée ✅"}
               </div>
-              {currentQuestion.explanation ? (
-                <div className="text-sm text-[hsl(42,30%,70%)] leading-relaxed">
-                  {currentQuestion.explanation}
-                </div>
-              ) : (
-                <div className="text-sm text-[hsl(42,30%,65%)]">
-                  Réponse correcte :{" "}
-                  <span className="font-semibold text-[hsl(42,50%,70%)]">
-                    {currentQuestion.choices?.[correctIndex]}
-                  </span>
+
+              {currentQuestion.gradable && typeof correctIndex === "number" && (
+                <div className="mt-2 text-sm">
+                  Réponse correcte : <span className="font-semibold">{currentQuestion.choices?.[correctIndex]}</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Footer carte */}
           <div className="mt-7 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-[hsl(42,50%,54%,0.6)]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-              <span className="text-sm text-[hsl(42,30%,55%)]">
-                Score :{" "}
-                <span className="font-bold text-[hsl(42,50%,70%)]">{session.score}</span>
-                <span className="text-[hsl(42,30%,40%)]"> / {total}</span>
-              </span>
+            <div className="text-sm text-[hsl(42,30%,55%)]">
+              Score (corrigé) : <span className="font-bold text-[hsl(42,50%,70%)]">{session.score}</span>
+              <span className="text-[hsl(42,30%,40%)]"> / {gradableTotal}</span>
             </div>
 
             <button
@@ -513,7 +442,6 @@ export default function QuizPlayPage() {
                       background: "linear-gradient(135deg, hsl(0,60%,28%), hsl(30,50%,30%))",
                       color: "hsl(42,50%,75%)",
                       border: "1px solid hsl(0,50%,40%,0.5)",
-                      boxShadow: "0 0 20px rgba(139,0,0,0.3)",
                     }
                   : {
                       background: "hsl(260,15%,14%)",
@@ -527,34 +455,8 @@ export default function QuizPlayPage() {
             </button>
           </div>
         </div>
-
-        {/* Meta démo */}
-        <div
-          className="rounded-xl p-5 border text-sm"
-          style={{
-            background: "hsl(260,20%,9%,0.6)",
-            borderColor: "hsl(260,15%,15%)",
-          }}
-        >
-          <div className="font-bold mb-2 text-xs tracking-widest uppercase text-[hsl(42,50%,54%,0.7)]">
-            Données fictives (démo)
-          </div>
-          <div className="text-[hsl(42,30%,55%)]">
-            Score de correspondance CV ↔ Offre :{" "}
-            <span className="font-semibold text-[hsl(42,50%,65%)]">{session.meta?.scoreMatch}</span>/100
-          </div>
-          <div className="mt-1 text-xs text-[hsl(42,30%,38%)]">
-            Vous pouvez supprimer le "seed" lorsque le backend sera prêt.
-          </div>
-        </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
+
