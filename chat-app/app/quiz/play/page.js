@@ -168,7 +168,7 @@ export default function QuizPlayPage() {
 
   const handleClearAndGoGenerate = () => {
     clearQuizSession();
-    router.push("/quiz/generate"); // ✅ à créer
+    router.push("/quiz"); // ✅ à créer
   };
 
   // ✅ Si aucune session : écran propre

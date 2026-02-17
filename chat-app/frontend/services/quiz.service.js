@@ -1,18 +1,28 @@
-export async function generateQuiz({ cvFile, jobMode, jobText, jobFile }) {
+import { useAuth } from "../hooks/useAuth";
+
+export async function generateQuiz({ cvFile, jobMode, jobText, jobFile, userId }) {
+
+
+
+  if(!userId) throw new Error("user not found");
+   ;
   if (!cvFile) throw new Error("CV manquant.");
 
   const formData = new FormData();
   formData.append("cv", cvFile);
 
   formData.append("jobMode", jobMode); // "text" | "pdf"
-  if (jobMode === "text") formData.append("jobText", (jobText || "").trim());
-  if (jobMode === "pdf") {
-    if (!jobFile) throw new Error("PDF de l'offre manquant.");
-    formData.append("jobPdf", jobFile);
-  }
-
-  const res = await fetch("/api/quiz/generate", {
+  if (jobMode === "text") formData.append("offre", (jobText || "").trim());
+  // if (jobMode === "pdf") {
+  //   if (!jobFile) throw new Error("PDF de l'offre manquant.");
+  //   formData.append("jobPdf", jobFile);
+  // }
+  
+  const res = await fetch("/api/quiz", {
     method: "POST",
+    headers:{
+      'x-user-id':userId
+    },
     body: formData,
     // utile si ton API dépend des cookies/session (Supabase SSR, etc.)
     credentials: "include",

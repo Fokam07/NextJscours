@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import { generateQuiz } from "@/frontend/services/quiz.service";
 import { saveQuizSession, clearQuizSession } from "@/frontend/services/quizSession.service";
 import Sidebar from "@/frontend/components/sideBar";
+import { useAuth } from "@/frontend/hooks/useAuth";
 
 /** "A"->0, "B"->1, ... */
 function letterToIndex(letter) {
   if (!letter || typeof letter !== "string") return null;
   const L = letter.trim().toUpperCase();
-  const code = L.charCodeAt(0);
-  if (code < 65 || code > 90) return null;
-  return code - 65;
+  return L[0];
 }
 
 function normalizeBackendResponse(payload) {
@@ -86,6 +85,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const {user} = useAuth();
 
   const canSubmit = useMemo(() => {
     if (!cvFile) return false;
@@ -103,7 +103,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
       clearQuizSession();
 
       // payload attendu: { data: { job_title, matching_score_estimation, quiz: [...] } }
-      const payload = await generateQuiz({ cvFile, jobMode, jobText, jobFile });
+      const payload = await generateQuiz({ cvFile, jobMode, jobText, jobFile, userId: user?.id });
 
       const normalized = normalizeBackendResponse(payload);
 
