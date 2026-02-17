@@ -6,6 +6,74 @@ import { generateQuiz } from "@/frontend/services/quiz.service";
 import { saveQuizSession, clearQuizSession } from "@/frontend/services/quizSession.service";
 import Sidebar from "@/frontend/components/sideBar";
 
+/** "A"->0, "B"->1, ... */
+function letterToIndex(letter) {
+  if (!letter || typeof letter !== "string") return null;
+  const L = letter.trim().toUpperCase();
+  const code = L.charCodeAt(0);
+  if (code < 65 || code > 90) return null;
+  return code - 65;
+}
+
+function normalizeBackendResponse(payload) {
+  // accepte: payload.data ou payload direct (au cas où)
+  const d = payload?.data ?? payload ?? {};
+
+  const jobTitle = d.job_title ?? null;
+  const matchScore = typeof d.matching_score_estimation === "number" ? d.matching_score_estimation : null;
+
+  const rawQuiz = Array.isArray(d.quiz) ? d.quiz : [];
+  const questions = rawQuiz.map((q, i) => {
+    const type = q?.type ?? "mcq";
+    const base = {
+      id: q?.id ?? `q_${i + 1}`,
+      type,
+      topic: q?.related_skill ?? null,
+      difficulty: null, // backend ne le fournit pas (pour l’instant)
+      question: q?.question ?? "",
+      explanation: q?.why ?? null,
+    };
+
+    // MCQ
+    if (type === "mcq") {
+      const options = Array.isArray(q?.options) ? q.options : [];
+      const answerIndex = letterToIndex(q?.correct_answer);
+      return {
+        ...base,
+        gradable: true,
+        choices: options,
+        answerIndex: typeof answerIndex === "number" ? answerIndex : null,
+      };
+    }
+
+    // TRUE/FALSE
+    if (type === "true_false") {
+      // correct_answer est boolean dans ton exemple
+      const correctBool = typeof q?.correct_answer === "boolean" ? q.correct_answer : null;
+      return {
+        ...base,
+        gradable: true,
+        choices: ["Vrai", "Faux"],
+        correctBool,
+      };
+    }
+
+    // OPEN / SCENARIO (non auto-corrigés)
+    return {
+      ...base,
+      gradable: false,
+      choices: [],
+      answerIndex: null,
+    };
+  });
+
+  return {
+    jobTitle,
+    matchScore,
+    questions,
+  };
+}
+
 export default function QuizSetupPage({ sidebarProps = {} }) {
   const router = useRouter();
 
@@ -34,28 +102,26 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
     try {
       clearQuizSession();
 
-      const data = await generateQuiz({ cvFile, jobMode, jobText, jobFile });
+      // payload attendu: { data: { job_title, matching_score_estimation, quiz: [...] } }
+      const payload = await generateQuiz({ cvFile, jobMode, jobText, jobFile });
 
-      const questions = data.quiz || data.questions || [];
-      if (!Array.isArray(questions) || questions.length === 0) {
+      const normalized = normalizeBackendResponse(payload);
+
+      if (!Array.isArray(normalized.questions) || normalized.questions.length === 0) {
         throw new Error("Le serveur n'a renvoyé aucune question.");
       }
 
       const quizSession = {
-        quizId: data.quizId || String(Date.now()),
-        questions,
+        quizId: `quiz_${Date.now()}`,
+        jobTitle: normalized.jobTitle, // optionnel, utile pour /result
+        questions: normalized.questions,
         currentIndex: 0,
         answers: [],
-        score: 0,
+        score: 0, // score = uniquement questions auto-corrigées (mcq/true_false)
         startedAt: new Date().toISOString(),
         finishedAt: null,
         meta: {
-          scoreMatch: data.score ?? null,
-          cvSkills: data.cvSkills ?? null,
-          jobSkills: data.jobSkills ?? null,
-          missingSkills: data.missingSkills ?? null,
-          matchedSkills: data.matchedSkills ?? null,
-          decision: data.decision ?? null,
+          scoreMatch: normalized.matchScore, // ✅ le vrai score backend
         },
       };
 
@@ -78,12 +144,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
       {/* ── Sidebar drawer overlay ── */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-          {/* Panel */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="relative z-10 flex-shrink-0 shadow-[4px_0_30px_rgba(0,0,0,0.5)]">
             <Sidebar
               {...sidebarProps}
@@ -102,7 +163,6 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
         </div>
       )}
 
-      {/* Motif de fond — grille Nazarick */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.025]"
         style={{
@@ -111,10 +171,9 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
         }}
       />
 
-      {/* En-tête décoratif */}
+      {/* En-tête */}
       <div className="relative border-b border-[hsl(42,50%,54%,0.12)] bg-[hsl(260,25%,7%,0.8)]">
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center gap-4">
-          {/* Bouton hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-[hsl(260,15%,14%)]"
@@ -126,7 +185,6 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
             </svg>
           </button>
 
-          {/* Bouton retour subtil vers le chat */}
           <button
             onClick={() => router.push("/")}
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all group"
@@ -135,32 +193,20 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
               border: "1px solid hsl(260,15%,16%)",
               color: "hsl(42,30%,40%)",
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "hsl(260,15%,12%)";
-              e.currentTarget.style.borderColor = "hsl(42,50%,54%,0.2)";
-              e.currentTarget.style.color = "hsl(42,30%,62%)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.borderColor = "hsl(260,15%,16%)";
-              e.currentTarget.style.color = "hsl(42,30%,40%)";
-            }}
             title="Retour au chat"
           >
             <svg className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             <span className="text-xs tracking-wide hidden sm:inline">Chat</span>
           </button>
 
           <div className="w-10 h-10 rounded-xl bg-[hsl(0,60%,35%,0.2)] border border-[hsl(0,60%,35%,0.4)] flex items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.25)]">
             <svg className="w-6 h-6 text-[hsl(42,50%,60%)]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z" />
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10z" />
             </svg>
           </div>
+
           <div>
             <h1 className="text-lg font-bold tracking-widest uppercase text-[hsl(42,50%,60%)]">
               Épreuve de Nazarick
@@ -168,20 +214,14 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
             <p className="text-xs text-[hsl(42,30%,45%)] tracking-wide">Générateur de Quiz</p>
           </div>
         </div>
-        {/* Séparateur ornemental */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-3 translate-y-1/2">
-          <div className="w-20 h-px bg-gradient-to-r from-transparent to-[hsl(42,50%,54%,0.4)]" />
-          <div className="w-2 h-2 border border-[hsl(42,50%,54%,0.6)] rotate-45 bg-[hsl(260,25%,7%)]" />
-          <div className="w-20 h-px bg-gradient-to-l from-transparent to-[hsl(42,50%,54%,0.4)]" />
-        </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-12 relative z-10">
         <p className="text-[hsl(42,30%,55%)] mb-10 text-sm tracking-wide">
-          Soumettez votre parchemin (CV) et la missive du Sorcier Suprême (offre d'emploi) pour commencer l'épreuve.
+          Soumettez votre CV (PDF) et l’offre (texte ou PDF), puis lancez la génération.
         </p>
 
-        {/* Bloc CV */}
+        {/* CV */}
         <div
           className="rounded-2xl p-6 mb-6 border"
           style={{
@@ -190,13 +230,12 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
             boxShadow: "0 0 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(212,175,55,0.05)",
           }}
         >
-          {/* Titre de section */}
           <div className="flex items-center gap-3 mb-5">
             <div className="flex items-center justify-center w-6 h-6 rounded-md bg-[hsl(0,60%,30%,0.25)] border border-[hsl(0,60%,30%,0.4)] text-[hsl(42,50%,60%)] text-xs font-bold">
               Ⅰ
             </div>
             <h2 className="font-bold tracking-widest uppercase text-[hsl(42,50%,60%)] text-sm">
-              Votre Parchemin (CV — PDF)
+              CV (PDF)
             </h2>
           </div>
 
@@ -208,13 +247,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
             </div>
             <div className="flex-1 min-w-0">
               {cvFile ? (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[hsl(142,60%,45%)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-[hsl(42,30%,82%)] truncate font-medium">{cvFile.name}</span>
-                  <span className="text-xs text-[hsl(42,30%,45%)] flex-shrink-0">({Math.round(cvFile.size / 1024)} KB)</span>
-                </div>
+                <span className="text-sm text-[hsl(42,30%,82%)] truncate font-medium">{cvFile.name}</span>
               ) : (
                 <span className="text-sm text-[hsl(42,30%,45%)]">Cliquez pour importer un fichier PDF</span>
               )}
@@ -228,7 +261,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
           </label>
         </div>
 
-        {/* Bloc Offre */}
+        {/* Offre */}
         <div
           className="rounded-2xl p-6 mb-6 border"
           style={{
@@ -242,17 +275,16 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
               Ⅱ
             </div>
             <h2 className="font-bold tracking-widest uppercase text-[hsl(42,50%,60%)] text-sm">
-              La Missive (Offre d'Emploi)
+              Offre d’emploi
             </h2>
           </div>
 
-          {/* Sélecteur de mode */}
           <div className="flex gap-2 mb-5 p-1 rounded-xl bg-[hsl(260,25%,7%)] border border-[hsl(260,15%,14%)]">
             <button
               onClick={() => setJobMode("text")}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold tracking-wide uppercase transition-all ${
                 jobMode === "text"
-                  ? "bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.4)]"
+                  ? "bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] border border-[hsl(0,50%,40%,0.4)]"
                   : "text-[hsl(42,30%,45%)] hover:text-[hsl(42,30%,65%)] hover:bg-[hsl(260,15%,14%)]"
               }`}
             >
@@ -262,7 +294,7 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
               onClick={() => setJobMode("pdf")}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold tracking-wide uppercase transition-all ${
                 jobMode === "pdf"
-                  ? "bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.4)]"
+                  ? "bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] border border-[hsl(0,50%,40%,0.4)]"
                   : "text-[hsl(42,30%,45%)] hover:text-[hsl(42,30%,65%)] hover:bg-[hsl(260,15%,14%)]"
               }`}
             >
@@ -271,40 +303,26 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
           </div>
 
           {jobMode === "text" ? (
-            <>
-              <textarea
-                value={jobText}
-                onChange={(e) => setJobText(e.target.value)}
-                rows={8}
-                placeholder="Collez ici l'offre d'emploi (description, missions, compétences demandées…)"
-                className="w-full rounded-xl p-4 text-sm text-[hsl(42,30%,82%)] placeholder-[hsl(260,10%,35%)] focus:outline-none focus:ring-1 focus:ring-[hsl(42,50%,54%,0.3)] resize-none transition-all"
-                style={{
-                  background: "hsl(260,25%,7%,0.8)",
-                  border: "1px solid hsl(260,15%,18%)",
-                }}
-              />
-              <p className="mt-2 text-xs text-[hsl(42,30%,38%)]">
-                Astuce : collez au moins 2–3 paragraphes pour de meilleurs résultats.
-              </p>
-            </>
+            <textarea
+              value={jobText}
+              onChange={(e) => setJobText(e.target.value)}
+              rows={8}
+              placeholder="Collez ici l'offre d'emploi…"
+              className="w-full rounded-xl p-4 text-sm text-[hsl(42,30%,82%)] placeholder-[hsl(260,10%,35%)] focus:outline-none resize-none transition-all"
+              style={{ background: "hsl(260,25%,7%,0.8)", border: "1px solid hsl(260,15%,18%)" }}
+            />
           ) : (
             <label className="group relative flex items-center gap-4 p-4 rounded-xl border border-dashed border-[hsl(42,50%,54%,0.2)] bg-[hsl(260,25%,7%,0.5)] hover:border-[hsl(42,50%,54%,0.4)] hover:bg-[hsl(260,25%,7%,0.8)] transition-all cursor-pointer">
-              <div className="w-10 h-10 rounded-lg bg-[hsl(42,50%,54%,0.08)] border border-[hsl(42,50%,54%,0.2)] flex items-center justify-center flex-shrink-0 group-hover:bg-[hsl(42,50%,54%,0.15)] transition-colors">
+              <div className="w-10 h-10 rounded-lg bg-[hsl(42,50%,54%,0.08)] border border-[hsl(42,50%,54%,0.2)] flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
                 {jobFile ? (
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-[hsl(142,60%,45%)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm text-[hsl(42,30%,82%)] truncate font-medium">{jobFile.name}</span>
-                    <span className="text-xs text-[hsl(42,30%,45%)] flex-shrink-0">({Math.round(jobFile.size / 1024)} KB)</span>
-                  </div>
+                  <span className="text-sm text-[hsl(42,30%,82%)] truncate font-medium">{jobFile.name}</span>
                 ) : (
-                  <span className="text-sm text-[hsl(42,30%,45%)]">Cliquez pour importer un fichier PDF</span>
+                  <span className="text-sm text-[hsl(42,30%,45%)]">Cliquez pour importer un PDF</span>
                 )}
               </div>
               <input
@@ -320,24 +338,18 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
         {/* Erreur */}
         {error && (
           <div
-            className="mb-6 p-4 rounded-xl border flex items-start gap-3"
-            style={{
-              background: "hsl(0,60%,15%,0.3)",
-              borderColor: "hsl(0,60%,35%,0.4)",
-            }}
+            className="mb-6 p-4 rounded-xl border"
+            style={{ background: "hsl(0,60%,15%,0.3)", borderColor: "hsl(0,60%,35%,0.4)" }}
           >
-            <svg className="w-5 h-5 text-[hsl(0,50%,60%)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
             <p className="text-sm text-[hsl(0,30%,75%)]">{error}</p>
           </div>
         )}
 
-        {/* Bouton principal */}
+        {/* Bouton */}
         <button
           disabled={!canSubmit || loading}
           onClick={handleGenerate}
-          className="w-full py-4 rounded-xl font-bold tracking-widest uppercase text-sm transition-all relative overflow-hidden"
+          className="w-full py-4 rounded-xl font-bold tracking-widest uppercase text-sm transition-all"
           style={
             !canSubmit || loading
               ? {
@@ -354,24 +366,8 @@ export default function QuizSetupPage({ sidebarProps = {} }) {
                 }
           }
         >
-          {loading ? (
-            <span className="flex items-center justify-center gap-3">
-              <div className="w-4 h-4 border-2 border-[hsl(42,50%,54%,0.3)] border-t-[hsl(42,50%,54%)] rounded-full animate-spin" />
-              Invocation en cours…
-            </span>
-          ) : (
-            "Commencer l'Épreuve"
-          )}
+          {loading ? "Invocation en cours…" : "Commencer l'Épreuve"}
         </button>
-
-        {/* Décoration de bas de page */}
-        <div className="mt-8 flex justify-center items-center gap-4">
-          <div className="w-24 h-px bg-gradient-to-r from-transparent to-[hsl(42,50%,54%,0.2)]" />
-          <svg className="w-4 h-4 text-[hsl(42,50%,54%,0.3)]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-          <div className="w-24 h-px bg-gradient-to-l from-transparent to-[hsl(42,50%,54%,0.2)]" />
-        </div>
       </div>
     </div>
   );
