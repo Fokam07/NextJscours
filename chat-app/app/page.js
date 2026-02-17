@@ -207,6 +207,8 @@ export default function Home() {
         onSelectRole={handleSelectRole}
         currentRoleId={currentRoleId}
         onShowCVGenerator={() => setShowCVGenerator(true)}
+        onHideCVGenerator={() => { setShowCVGenerator(false); setGeneratedData(null); }}
+        isShowingCV={showCVGenerator || !!generatedData}
       />
       {showCVGenerator ? (
         <CVGenerator 

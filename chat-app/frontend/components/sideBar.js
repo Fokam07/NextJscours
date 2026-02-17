@@ -15,6 +15,7 @@ export default function Sidebar({
   onSelectRole,
   currentRoleId,
   onShowCVGenerator,
+  onHideCVGenerator,
   isShowingCV = false,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -29,11 +30,7 @@ export default function Sidebar({
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
   useEffect(() => {
-    if (isShowingCV) {
-      setActiveTab('cv');
-    } else if (activeTab === 'cv') {
-      setActiveTab('history');
-    }
+    setActiveTab(isShowingCV ? 'cv' : 'history');
   }, [isShowingCV]);
 
   const loadRoles = useCallback(async () => {
@@ -206,7 +203,7 @@ export default function Sidebar({
               }`}
             >
               <button
-                onClick={() => onSelectConversation(conv.id)}
+                onClick={() => { onSelectConversation(conv.id); onHideCVGenerator?.(); }}
                 className="w-full text-left px-3 py-3 flex items-center gap-3"
               >
                 <div className={`w-2 h-2 rounded-full ${
@@ -378,7 +375,7 @@ export default function Sidebar({
         )}
 
         <button
-          onClick={onNewConversation}
+          onClick={() => { onNewConversation(); onHideCVGenerator?.(); }}
           className="w-full h-11 bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] text-[hsl(42,50%,70%)] border border-[hsl(0,50%,40%,0.3)] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_15px_rgba(139,0,0,0.2)] font-bold uppercase tracking-wide"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -390,7 +387,7 @@ export default function Sidebar({
         {(isExpanded || isPinned) && (
           <div className="grid grid-cols-3 gap-1 p-1 bg-[hsl(260,20%,8%)] rounded-xl border border-[hsl(260,15%,14%)]">
             <button
-              onClick={() => setActiveTab('history')}
+              onClick={() => { setActiveTab('history'); onHideCVGenerator?.(); }}
               className={`py-2 text-[10px] font-bold uppercase tracking-[0.15em] rounded-lg transition-all ${
                 activeTab === 'history' 
                   ? 'bg-[hsl(0,60%,35%,0.2)] text-[hsl(42,50%,54%)] border border-[hsl(0,60%,35%,0.3)]' 
@@ -400,7 +397,7 @@ export default function Sidebar({
               Archive
             </button>
             <button
-              onClick={() => setActiveTab('roles')}
+              onClick={() => { setActiveTab('roles'); onHideCVGenerator?.(); }}
               className={`py-2 text-[10px] font-bold uppercase tracking-[0.15em] rounded-lg transition-all ${
                 activeTab === 'roles' 
                   ? 'bg-[hsl(270,50%,40%,0.2)] text-[hsl(42,50%,54%)] border border-[hsl(270,50%,40%,0.3)]' 

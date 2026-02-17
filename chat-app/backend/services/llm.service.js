@@ -76,6 +76,74 @@ export const llmService = {
       throw new Error("Erreur lors de la génération de la réponse");
     }
   },
+  
+  async generateQuiz({systemPrompt, cvText, offre}) {
+    try {
+      // Construire le contexte avec les pièces jointes si présentes
+      let enrichedMessages = [];
+
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
+
+      if(cvText && offre){
+        enrichedMessages.push({
+          role: "user",
+          content:`
+            ok peut tu donc me generer ce ce quiz
+            voici le cv dont j'ai extrait le text er l'offre
+
+            ### Offre d’emploi :
+            ${offre}
+
+            ### CV du candidat :
+            ${cvText}
+            
+          `
+        })
+      }
+
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: enrichedMessages,
+            temperature: 0.7,
+            max_tokens: 2048,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Groq API Error: ${error.error?.message || "Unknown error"}`,
+        );
+      }
+
+      const data = await response.json();
+      const raw = data.choices[0].message.content;
+      const json = raw.replace(/```json\n?/, '').replace(/\n?```$/, '').trim();
+      const parsed = JSON.parse(json);
+
+      return {
+        data: parsed
+      };
+    } catch (error) {
+      console.error("Erreur Groq LLM:", error);
+      throw new Error("Erreur lors de la génération du quiz");
+    }
+  },
 
   /**
    * Générer un titre intelligent pour une conversation
@@ -225,6 +293,8 @@ export const llmService = {
     return estimatedTokens < model.maxTokens * 0.8;
   },
 
+
+
   
 };
 
@@ -319,8 +389,6 @@ export const llmServicer = {
   },
 
   
-
-
   async generateCv({offre, poste, instructions, existing}) {
 
     try {
@@ -357,9 +425,20 @@ export const llmServicer = {
       console.log("erreur gemini cv: ", error);
         throw new Error("erreur de la generation du cv")
     }
+  },
 
-  }
+
+  clearChatCache(conversationId = null) {
+    if (conversationId) {
+      chats.delete(conversationId);
+      console.log(`[LLM Gemini] Chat supprimé pour conversation: ${conversationId}`);
+    } else {
+      chats.clear();
+      console.log("[LLM Gemini] Tous les chats en cache ont été vidés");
+    }
+  },
 };
+
 
 
 

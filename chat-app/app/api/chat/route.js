@@ -1,6 +1,8 @@
+// app/api/chat/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
 import Groq from "groq-sdk";
+import { roleService } from "@/backend/services/role.service";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -8,66 +10,122 @@ const groq = new Groq({
 
 export async function POST(request) {
   try {
-    const { message } = await request.json();
+    const body = await request.json();
+    const {
+      message,
+      roleId = null,           // ← nouveau : ID du rôle choisi (optionnel)
+      conversationId = null,   // optionnel – si tu veux plusieurs conversations plus tard
+    } = body;
 
     if (!message?.trim()) {
       return NextResponse.json({ error: "Message requis" }, { status: 400 });
     }
-      
 
-    // 1. Sauvegarde message utilisateur
+    // ───────────────────────────────────────────────
+    // 1. Récupérer le system prompt du rôle (si choisi)
+    // ───────────────────────────────────────────────
+    let systemPrompt = null;
+    let roleUsed = null;
+
+    if (roleId) {
+      const selectedRole = await roleService.getRoleById(roleId, /* userId */ request.headers.get("x-user-id"));
+
+      if (selectedRole) {
+        systemPrompt = selectedRole.system_prompt;
+        roleUsed = {
+          id: selectedRole.id,
+          name: selectedRole.name,
+          icon: selectedRole.icon || "🤖",
+        };
+
+        // Optionnel : incrémenter le compteur d'utilisation
+        roleService.incrementUsageCount(roleId).catch((err) =>
+          console.warn("Échec incrément usage", err)
+        );
+      } else {
+        console.warn(`Rôle ${roleId} non trouvé ou non autorisé`);
+      }
+    }
+
+    // ───────────────────────────────────────────────
+    // 2. Sauvegarde message utilisateur
+    // ───────────────────────────────────────────────
     const userMessage = await prisma.message.create({
       data: {
         role: "user",
         content: message.trim(),
+        // Si tu veux stocker le rôle utilisé :
+        // roleId: roleId || null,
+        // conversationId: conversationId || null,
       },
     });
 
-    console.log("User message créé :", userMessage);
-
-    // 2. Récupère l'historique récent (contexte pour l'IA)
+    // ───────────────────────────────────────────────
+    // 3. Récupère l'historique récent
+    // ───────────────────────────────────────────────
+    // Pour l'instant on garde simple (tous les messages)
+    // → plus tard tu pourras filtrer par conversationId
     const history = await prisma.message.findMany({
       orderBy: { createdAt: "asc" },
-      take: 20, // limite pour éviter token overflow
+      take: 20,
     });
 
-    // Format OpenAI-compatible
     const messagesForGroq = history.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 
-    // Ajoute le message actuel (déjà sauvegardé, mais on le met pour cohérence)
+    // Ajout du message actuel
     messagesForGroq.push({ role: "user", content: message.trim() });
 
-    // 3. Appel Groq
+    // ───────────────────────────────────────────────
+    // 4. Préparation des messages avec system prompt
+    // ───────────────────────────────────────────────
+    let finalMessages = messagesForGroq;
+
+    if (systemPrompt) {
+      finalMessages = [
+        { role: "system", content: systemPrompt },
+        ...messagesForGroq,
+      ];
+    }
+
+    // ───────────────────────────────────────────────
+    // 5. Appel Groq
+    // ───────────────────────────────────────────────
     const completion = await groq.chat.completions.create({
-      messages: messagesForGroq,
-      model: "llama-3.3-70b-versatile",          // ← Change ici pour tester (fiable en 2026)
-      // Alternative rapide : "llama-3.1-8b-instant"
+      messages: finalMessages,
+      model: "llama-3.3-70b-versatile",
       temperature: 0.7,
       max_tokens: 1024,
     });
 
-    const aiReply = completion.choices?.[0]?.message?.content?.trim() || "Désolé, je n'ai pas pu répondre.";
+    const aiReply =
+      completion.choices?.[0]?.message?.content?.trim() ||
+      "Désolé, je n'ai pas pu répondre.";
 
-    console.log("Réponse Groq :", aiReply.substring(0, 150) + "...");
-
-    // 4. Sauvegarde réponse IA
+    // ───────────────────────────────────────────────
+    // 6. Sauvegarde réponse IA
+    // ───────────────────────────────────────────────
     const aiMessage = await prisma.message.create({
       data: {
         role: "assistant",
         content: aiReply,
+        // roleId: roleId || null,     // si tu veux tracer
       },
     });
 
-    console.log("AI message créé :", aiMessage);
-
-    // 5. Renvoie les deux pour que le frontend puisse les afficher correctement
-    return NextResponse.json({ userMessage, aiMessage });
+    // ───────────────────────────────────────────────
+    // 7. Réponse au frontend
+    // ───────────────────────────────────────────────
+    return NextResponse.json({
+      userMessage,
+      aiMessage,
+      roleUsed,           // ← permet d'afficher "Réponse de : [Nom du rôle]"
+    });
 
   } catch (error) {
-    console.error("Erreur POST /api/chat :", error.message || error);
+    console.error("Erreur POST /api/chat :", error);
     return NextResponse.json(
       { error: "Erreur lors de la génération de la réponse" },
       { status: 500 }
@@ -75,15 +133,18 @@ export async function POST(request) {
   }
 }
 
-// GET : historique (renvoie directement le tableau, pas { messages })
+// GET : historique (inchangé)
 export async function GET() {
   try {
     const messages = await prisma.message.findMany({
       orderBy: { createdAt: "asc" },
     });
-    return NextResponse.json(messages); // ← tableau direct, pas { messages }
+    return NextResponse.json(messages);
   } catch (error) {
     console.error("Erreur GET /api/chat :", error);
-    return NextResponse.json({ error: "Erreur récupération messages" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erreur récupération messages" },
+      { status: 500 }
+    );
   }
 }
