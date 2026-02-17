@@ -2,6 +2,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import RoleModal from './RoleModal';
+import { useRouter } from 'next/navigation';
 
 export default function Sidebar({
   conversations,
@@ -11,10 +13,6 @@ export default function Sidebar({
   onDeleteConversation,
   onSignOut,
   user,
-  onSelectRole,
-  currentRoleId,
-  onShowCVGenerator,
-  onHideCVGenerator,
   onSelectRole,
   currentRoleId,
   onShowCVGenerator,
@@ -31,6 +29,8 @@ export default function Sidebar({
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     setActiveTab(isShowingCV ? 'cv' : 'history');

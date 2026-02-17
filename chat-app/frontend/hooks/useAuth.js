@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { supabase } from '@/backend/lib/supabase';
+import { createSupabaseBrowserClient as getSupabaseBrowserClient } from "@/backend/lib/supabaseClient"; 
 
 const authContext = createContext();
 
@@ -11,38 +11,59 @@ export const AuthProvider = ({children}) =>{
   const [error, setError] = useState(null);
   console.log("use auth est appele");
 
-  useEffect(() => {
-    // Vérifier la session actuelle
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if(session?.user){
-        const userDb = await findOrCreateUser(session.user.id, session.user.email);
-        setUser(userDb??null);
-      }
-      setLoading(false);
+  // useEffect(() => {
+  //   // Vérifier la session actuelle
+  //   supabase.auth.getSession().then(async ({ data: { session } }) => {
+  //     if(session?.user){
+  //       const userDb = await findOrCreateUser(session.user.id, session.user.email);
+  //       setUser(userDb??null);
+  //     }
+  //     setLoading(false);
+  //   });
+
+  //   // Écouter les changements d'authentification
+  //   const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  //     try {
+  //       if(session?.user){
+  //         if( user && session.user.id!=user.id){
+  //         const userDb = await findOrCreateUser(session.user.id, session.user.email);
+  //         setUser(userDb??null);
+  //       }
+  //       }else{
+  //         setUser(null);
+  //       }
+  //     } catch (error) {
+  //       setError(error.message);
+  //     }
+  //     finally{
+  //       setLoading(false);
+  //       console.log("loading est mis a jour", loading)
+  //     }
+  //   });
+
+  //   return data.user; // Prisma user
+  // }, [])
+
+  const findOrCreateUser = async (id, email) => {
+    const res = await fetch(`/api/auth`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": id, // ton ancien flow
+      },
+      body: JSON.stringify({ email }),
+      credentials: "include",
     });
 
-    // Écouter les changements d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      try {
-        if(session?.user){
-          if( user && session.user.id!=user.id){
-          const userDb = await findOrCreateUser(session.user.id, session.user.email);
-          setUser(userDb??null);
-        }
-        }else{
-          setUser(null);
-        }
-      } catch (error) {
-        setError(error.message);
-      }
-      finally{
-        setLoading(false);
-        console.log("loading est mis a jour", loading)
-      }
-    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Erreur récupération utilisateur");
+    }
 
     return data.user; // Prisma user
   };
+
 
   const saveUser = async (id, email, username) => {
     const res = await fetch("/api/auth/save", {
@@ -66,8 +87,10 @@ export const AuthProvider = ({children}) =>{
       setUser(null);
       return;
     }
-
+    
     const sbUser = session.user;
+    if(user && sbUser.id === user.id)
+      return;
     const appUser = await findOrCreateUser(sbUser.id, sbUser.email);
     setUser(appUser);
   };
