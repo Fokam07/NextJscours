@@ -109,9 +109,15 @@ async function uploadFiles(files, userId, conversationId) {
 
       if (error) throw error;
 
+      // 📥 Générer l'URL publique du fichier
+      const { data: publicUrl } = supabaseAdmin.storage
+        .from(bucket)
+        .getPublicUrl(storagePath);
+
       uploadedFiles.push({
         bucket,
         path: storagePath,
+        url: publicUrl?.publicUrl, // ✅ URL complète du fichier
         fileName: file.name,
         mimeType: file.type,
         size: file.size,
