@@ -35,3 +35,27 @@ export async function POST(request) {
         );
     } 
 }
+
+export async function GET(request) {
+    try {
+        // TODO: Récupérer l'userId depuis Supabase session
+        const userId = request.headers.get('x-user-id');
+        
+        if (!userId) {
+          return NextResponse.json(
+            { error: 'Non authentifié' },
+            { status: 401 }
+          );
+        }
+    
+        const quizs = await quizService.getQuizsByRecruteurId(userId);
+        
+        return NextResponse.json(conversations);
+      } catch (error) {
+        console.error('Erreur GET /api/quizs:', error);
+        return NextResponse.json(
+          { error: error.message },
+          { status: 500 }
+        );
+    }
+}
