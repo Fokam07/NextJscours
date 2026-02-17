@@ -30,16 +30,23 @@ export default function QuizPlayPage() {
 
     const s = getQuizSession();
 
-    // ✅ Plus de seed fictif ici
     if (!s || !Array.isArray(s.questions) || s.questions.length === 0) {
       setSession(null);
       return;
     }
 
-    // ✅ sécurise currentIndex
     const safe = { ...s };
     if (typeof safe.currentIndex !== "number" || safe.currentIndex < 0) safe.currentIndex = 0;
     if (safe.currentIndex >= safe.questions.length) safe.currentIndex = Math.max(0, safe.questions.length - 1);
+
+    // ✅ CHANGEMENT: sécurise chaque question gradable -> si answerIndex manquant, on la rend non gradable
+    safe.questions = safe.questions.map((q) => {
+      if (!q) return q;
+      if (q.gradable && typeof q.answerIndex !== "number") {
+        return { ...q, gradable: false }; // fallback: question devient "open" côté UI
+      }
+      return q;
+    });
 
     saveQuizSession(safe);
     setSession(safe);
@@ -76,16 +83,15 @@ export default function QuizPlayPage() {
 
   const gradeMcq = (q, idx) => typeof q.answerIndex === "number" && idx === q.answerIndex;
 
-  const gradeTrueFalse = (q, idx) => {
-    // idx 0 => Vrai, idx 1 => Faux
-    const picked = idx === 0;
-    return picked === Boolean(q.correctBool);
-  };
+  // ✅ CHANGEMENT: même logique que mcq (true_false a maintenant answerIndex 0/1)
+  const gradeTrueFalse = (q, idx) => typeof q.answerIndex === "number" && idx === q.answerIndex;
 
   const handlePick = (idx) => {
     if (!session || !currentQuestion) return;
     if (showResult) return;
-    if (!currentQuestion.gradable) return;
+
+    // ✅ CHANGEMENT: bloque si pas vraiment corrigeable
+    if (!currentQuestion.gradable || typeof currentQuestion.answerIndex !== "number") return;
 
     setSelectedIndex(idx);
     setShowResult(true);
@@ -116,7 +122,10 @@ export default function QuizPlayPage() {
   const handleSubmitText = () => {
     if (!session || !currentQuestion) return;
     if (showResult) return;
-    if (currentQuestion.gradable) return;
+
+    // ✅ CHANGEMENT: si gradable mais answerIndex absent -> on autorise la réponse texte (fallback)
+    const reallyGradable = currentQuestion.gradable && typeof currentQuestion.answerIndex === "number";
+    if (reallyGradable) return;
 
     const txt = (typedAnswer || "").trim();
     if (!txt) return;
@@ -141,6 +150,7 @@ export default function QuizPlayPage() {
     setSession(updated);
   };
 
+  // ✅ CHANGEMENT: fonction manquante (bouton "Continuer →")
   const handleContinue = () => {
     if (!session) return;
 
@@ -166,56 +176,27 @@ export default function QuizPlayPage() {
     setShowResult(false);
   };
 
+  // ✅ CHANGEMENT: fonction manquante (bouton "Nouveau quiz")
   const handleClearAndGoGenerate = () => {
     clearQuizSession();
-    router.push("/quiz"); // ✅ à créer
+    router.push("/quiz"); // ✅ CHANGEMENT: chez toi la page setup semble être /quiz
+    // si ta route setup est /quiz/generate, remets "/quiz/generate"
   };
-
-  // ✅ Si aucune session : écran propre
-  if (!session) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center text-[hsl(42,30%,82%)]"
-        style={{
-          background: "linear-gradient(135deg, hsl(260,25%,7%) 0%, hsl(260,20%,10%) 60%, hsl(0,20%,8%) 100%)",
-        }}
-      >
-        <div className="max-w-md w-full p-8 rounded-2xl border"
-          style={{ background: "hsl(260,20%,10%)", borderColor: "hsl(260,15%,18%)" }}
-        >
-          <h1 className="text-xl font-bold mb-2" style={{ color: "hsl(42,40%,85%)" }}>
-            Aucun quiz en cours
-          </h1>
-          <p className="text-sm mb-6 text-[hsl(42,30%,65%)]">
-            Génère un quiz à partir de ton CV et de l’offre, puis reviens ici pour le jouer.
-          </p>
-
-          <button
-            onClick={handleClearAndGoGenerate}
-            className="w-full px-6 py-3 rounded-xl font-bold tracking-widest uppercase text-sm transition-all"
-            style={{
-              background: "linear-gradient(135deg, hsl(0,60%,28%), hsl(30,50%,30%))",
-              color: "hsl(42,50%,75%)",
-              border: "1px solid hsl(0,50%,40%,0.5)",
-              boxShadow: "0 0 20px rgba(139,0,0,0.3)",
-            }}
-          >
-            Générer un quiz
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (!currentQuestion) return null;
 
-  // ✅ Pour afficher résultat gradable
-  let correctIndex = null;
-  if (currentQuestion.type === "mcq") correctIndex = currentQuestion.answerIndex;
-  if (currentQuestion.type === "true_false") correctIndex = currentQuestion.correctBool ? 0 : 1;
-  const isCorrect = showResult && currentQuestion.gradable && selectedIndex === correctIndex;
+  // ✅ CHANGEMENT: correctIndex seulement si number
+  const correctIndex =
+    currentQuestion.gradable && typeof currentQuestion.answerIndex === "number"
+      ? currentQuestion.answerIndex
+      : null;
 
-  const diffStyle = DIFFICULTY_COLORS[currentQuestion.difficulty] || DIFFICULTY_COLORS.medium;
+  const isCorrect =
+    showResult && typeof correctIndex === "number" && selectedIndex === correctIndex;
+
+  // ✅ CHANGEMENT: diffStyle manquait (tu l'utilises dans le badge difficulty)
+  const diffStyle =
+    DIFFICULTY_COLORS[currentQuestion.difficulty] || DIFFICULTY_COLORS.medium;
 
   return (
     <div
@@ -413,14 +394,22 @@ export default function QuizPlayPage() {
           )}
 
           {showResult && (
-            <div className="mt-6 p-5 rounded-xl border" style={{ borderColor: "hsl(260,15%,18%)", background: "hsl(260,25%,7%,0.4)" }}>
+            <div
+              className="mt-6 p-5 rounded-xl border"
+              style={{ borderColor: "hsl(260,15%,18%)", background: "hsl(260,25%,7%,0.4)" }}
+            >
               <div className="font-bold text-sm tracking-wide uppercase">
-                {currentQuestion.gradable ? (isCorrect ? "Bonne réponse ✅" : "Mauvaise réponse ❌") : "Réponse enregistrée ✅"}
+                {currentQuestion.gradable
+                  ? isCorrect
+                    ? "Bonne réponse ✅"
+                    : "Mauvaise réponse ❌"
+                  : "Réponse enregistrée ✅"}
               </div>
 
               {currentQuestion.gradable && typeof correctIndex === "number" && (
                 <div className="mt-2 text-sm">
-                  Réponse correcte : <span className="font-semibold">{currentQuestion.choices?.[correctIndex]}</span>
+                  Réponse correcte :{" "}
+                  <span className="font-semibold">{currentQuestion.choices?.[correctIndex]}</span>
                 </div>
               )}
             </div>
@@ -428,7 +417,8 @@ export default function QuizPlayPage() {
 
           <div className="mt-7 flex items-center justify-between">
             <div className="text-sm text-[hsl(42,30%,55%)]">
-              Score (corrigé) : <span className="font-bold text-[hsl(42,50%,70%)]">{session.score}</span>
+              Score (corrigé) :{" "}
+              <span className="font-bold text-[hsl(42,50%,70%)]">{session.score}</span>
               <span className="text-[hsl(42,30%,40%)]"> / {gradableTotal}</span>
             </div>
 
@@ -459,4 +449,5 @@ export default function QuizPlayPage() {
     </div>
   );
 }
+
 
