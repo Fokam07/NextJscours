@@ -12,6 +12,8 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
   const { err, loading: isLoading } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(null); // "google" | null
+  const [socialError, setSocialError] = useState(null);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -30,6 +32,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSocialError(null);
 
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
@@ -100,6 +103,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="john_doe"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
@@ -115,6 +119,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="votre@email.com"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
@@ -130,6 +135,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="••••••••"
               required
+              disabled={isAnyLoading}
             />
             <p className="text-xs text-[hsl(42,35%,50%)] mt-1.5 italic">
               Au moins 6 caractères
@@ -148,6 +154,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="••••••••"
               required
+              disabled={isAnyLoading}
             />
           </div>
 

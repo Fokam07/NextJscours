@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
@@ -14,7 +14,6 @@ import CVViewer from '@/frontend/components/cvViewer';
 
 export default function Home() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const [showRegister, setShowRegister] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(null);
   const { pop, push, route } = useNavigate();
@@ -156,7 +155,6 @@ export default function Home() {
   const handleSignOut = async () => {
     console.log('[page] 👋 Déconnexion...');
     await signOut();
-    push('home', true);
     setCurrentConversationId(null);
     setCurrentRoleId(null);
   };

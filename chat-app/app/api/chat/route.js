@@ -68,6 +68,7 @@ export async function POST(request) {
     const history = await prisma.message.findMany({
       orderBy: { createdAt: "asc" },
       take: 20,
+      take: 20,
     });
 
     const messagesForGroq = history.map((msg) => ({
@@ -103,6 +104,9 @@ export async function POST(request) {
     const aiReply =
       completion.choices?.[0]?.message?.content?.trim() ||
       "Désolé, je n'ai pas pu répondre.";
+    const aiReply =
+      completion.choices?.[0]?.message?.content?.trim() ||
+      "Désolé, je n'ai pas pu répondre.";
 
     // ───────────────────────────────────────────────
     // 6. Sauvegarde réponse IA
@@ -128,7 +132,7 @@ export async function POST(request) {
     console.error("Erreur POST /api/chat :", error);
     return NextResponse.json(
       { error: "Erreur lors de la génération de la réponse" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -139,6 +143,7 @@ export async function GET() {
     const messages = await prisma.message.findMany({
       orderBy: { createdAt: "asc" },
     });
+    return NextResponse.json(messages);
     return NextResponse.json(messages);
   } catch (error) {
     console.error("Erreur GET /api/chat :", error);

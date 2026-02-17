@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LoginForm({ onLogin, onSwitchToRegister }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { loading: isLoading, err } = useAuth();
@@ -20,9 +21,37 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
     e.preventDefault();
     const success = await onLogin(email, password);
     if (!success) {
-      console.log('Échec de la connexion');
+      console.log("Échec de la connexion");
+    }
+
+    setLoading(false);
+  };
+
+  const handleSocialLogin = async (provider) => {
+    try {
+      setSocialError(null);
+      setSocialLoading(provider);
+
+      const supabase = createSupabaseBrowserClient();
+
+      const origin = window.location.origin;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider, // "google" | "github"
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+      // Après ça, Supabase redirige automatiquement -> /auth/callback
+    } catch (err) {
+      setSocialError(err?.message || "Erreur connexion sociale");
+      setSocialLoading(null);
     }
   };
+
+  const isAnyLoading = loading || !!socialLoading;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[hsl(260,28%,8%)] to-[hsl(260,22%,5%)] px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -52,6 +81,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
           </p>
         </div>
 
+        {/* ✅ Email/Password form */}
         <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           {error && (
             <div className="bg-[hsl(0,60%,28%,0.25)] border border-[hsl(0,60%,40%,0.4)] text-[hsl(0,70%,75%)] px-4 py-3 rounded-xl text-sm shadow-inner">
@@ -70,6 +100,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="votre@email.com"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
@@ -84,6 +115,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }) {
               className="w-full px-4 py-3 text-base bg-[hsl(260,28%,7%)] border-2 border-[hsl(260,15%,18%)] rounded-xl text-[hsl(42,40%,85%)] placeholder-[hsl(42,20%,35%)] focus:border-[hsl(42,70%,50%)] focus:shadow-[0_0_20px_rgba(212,175,55,0.25)] focus:outline-none transition-all"
               placeholder="••••••••"
               required
+              disabled={isAnyLoading}
             />
           </div>
 
