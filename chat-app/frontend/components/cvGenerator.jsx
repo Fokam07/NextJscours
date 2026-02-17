@@ -15,7 +15,7 @@ export default function GeneratorPage({ user }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    e.stopPropagation();
     if (!poste || !offre || !file) {
       setError("Veuillez remplir tous les champs");
       return;
