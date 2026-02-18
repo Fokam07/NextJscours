@@ -154,7 +154,7 @@ model Candidature {
   statut         String?   @default("en_attente")
   // quiz_requis est une colonne GENERATED, Prisma ne peut pas la gérer en migration
   // mais on peut la lire en ajoutant le champ ci-dessous
-  quizRequis     Boolean?  @map("quiz_requis")
+ // quizRequis     Boolean?  @map("quiz_requis")
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz
 
   user           User   @relation(fields: [candidatId], references: [id], onDelete: Cascade)
