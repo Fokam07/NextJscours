@@ -1,4 +1,4 @@
-// frontend/components/chatArea.js
+// frontend/components/chatArea.js - Thème Overlord
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '../hooks/useChat';
 import ShareButtons from '@/frontend/services/shareButton';
@@ -176,10 +176,9 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
     setShowAttachMenu(false);
   };
 
-  // Fonction pour gérer le microphone
   const handleMicrophoneToggle = () => {
     if (!recognition) {
-      alert('La reconnaissance vocale n\'est pas supportée par votre navigateur. Essayez Chrome, Edge ou Safari.');
+      alert('La reconnaissance vocale n\'est pas supportée sur ce navigateur.');
       return;
     }
 
@@ -191,392 +190,278 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
         recognition.start();
         setIsRecording(true);
       } catch (error) {
-        console.error('Erreur lors du démarrage:', error);
-        setIsRecording(false);
+        console.error('Erreur démarrage reconnaissance:', error);
+        alert('Impossible de démarrer la reconnaissance vocale.');
       }
     }
   };
 
-  // Fonction pour parser les attachments de manière sécurisée
-  function safeParseAttachments(value) {
-    if (!value) return [];
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      console.warn("Impossible de parser attachments :", value);
-      return [];
-    }
-  }
-
-  const renderMessageContent = (message) => {
-      // Normalisation : on veut TOUJOURS un tableau (même vide)
-      const attachments = Array.isArray(message.attachments)
-        ? message.attachments
-        : message.attachments && typeof message.attachments === 'string'
-          ? safeParseAttachments(message.attachments)
-          : [];
-    
-      const imageAttachments = attachments.filter(
-        att => att && typeof att.type === 'string' && att.type.startsWith('image/')
-      );
-    
-      const otherAttachments = attachments.filter(
-        att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
-      );
-    
-      const parseMessage = (text)=> {
-        marked.setOptions({
-          gfm: true,            // Support GitHub Markdown
-          breaks: true,         // Conserve les sauts de lignes
-          headerIds: false,     // Évite les IDs inutiles
-          mangle: false         // Évite les caractères cassés
-        });
-        return DOMpurify.sanitize(marked.parse(text))
-      };
-    
-      return (
-        <div className="space-y-2 message-content-wrapper">
-          {/* Texte du message */}
-          {message.content && (
-            <div dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="prose dark:prose-invert max-w-none leading-relaxed">
-            </div>
-          )}
-    
-          {/* Images attachées */}
-          {imageAttachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {imageAttachments.map((attachment, idx) => (
-                <div key={idx} className="relative group">
-                  <img
-                    src={attachment.url || attachment.preview || attachment.dataUrl}
-                    alt={attachment.name || 'Image jointe'}
-                    className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
-                    onClick={() => {
-                      const src = attachment.url || attachment.preview || attachment.dataUrl;
-                      if (src) window.open(src, '_blank');
-                    }}
-                  />
-                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    Cliquer pour agrandir
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-    
-          {/* Documents / autres fichiers */}
-          {otherAttachments.length > 0 && (
-            <div className="space-y-2 mt-3">
-              {otherAttachments.map((attachment, idx) => (
-                <a
-                  key={idx}
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
-                    message.role === 'user'
-                      ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
-                      : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
-                  }`}
-                >
-                  <div className={`p-2 rounded-lg ${
-                    message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
-                  }`}>
-                    <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
-                      {attachment.name || 'Document'}
-                    </p>
-                    <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                      {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
-                    </p>
-                  </div>
-                  <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    };
+  const formatMessage = (content) => {
+    if (!content) return '';
+    const rawHtml = marked(content);
+    return DOMpurify.sanitize(rawHtml);
+  };
 
   if (!conversationId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30">
-        <div className="text-center">
-          <div className="w-28 h-28 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-500/30 animate-pulse">
-            <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-[hsl(260,25%,7%)] to-[hsl(260,20%,10%)]">
+        <div className="text-center space-y-6 p-8">
+          <div className="w-24 h-24 mx-auto bg-[hsl(0,60%,35%,0.15)] rounded-2xl flex items-center justify-center border border-[hsl(0,60%,35%,0.25)]">
+            <svg className="w-14 h-14 text-[hsl(42,50%,54%)]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
             </svg>
           </div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
-            Bienvenue !
-          </h2>
-          <p className="text-gray-500 text-lg">Sélectionnez ou créez une conversation</p>
-          <p className="text-gray-400 text-sm mt-2">Propulsé par Groq AI</p>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-[hsl(42,50%,54%)] tracking-wider uppercase">
+              Bienvenue à Nazarick
+            </h2>
+            <p className="text-[hsl(42,30%,65%)] text-base">
+              Sélectionnez une conversation ou créez-en une nouvelle<br/>
+              pour commencer votre audience avec le Sorcier Suprême
+            </p>
+          </div>
+          <div className="flex justify-center gap-4 mt-8">
+            <div className="w-16 h-[2px] bg-gradient-to-r from-transparent via-[hsl(42,50%,54%,0.5)] to-transparent"></div>
+            <div className="w-3 h-3 border-2 border-[hsl(42,50%,54%)] rotate-45"></div>
+            <div className="w-16 h-[2px] bg-gradient-to-r from-transparent via-[hsl(42,50%,54%,0.5)] to-transparent"></div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-blue-50/20 to-purple-50/20">
-      {/* Header - Responsive avec bouton hamburger */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-4 shadow-sm">
-        {/* Bouton Hamburger (Mobile seulement) */}
+    <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-[hsl(260,25%,7%)] to-[hsl(260,20%,10%)] relative overflow-hidden">
+      {/* Motif de fond subtil */}
+      <div className="absolute inset-0 opacity-[0.02] pointer-events-none" 
+           style={{
+             backgroundImage: `radial-gradient(circle at 2px 2px, hsl(42,50%,54%) 1px, transparent 0)`,
+             backgroundSize: '40px 40px'
+           }}>
+      </div>
+
+      {/* Header avec bouton share */}
+      <div className="relative z-20 bg-[hsl(260,18%,9%)] border-b border-[hsl(260,15%,14%)] px-4 py-3 flex items-center justify-between">
         {onOpenSidebar && (
           <button
             onClick={onOpenSidebar}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-            title="Ouvrir le menu"
+            className="md:hidden text-[hsl(42,50%,54%)] p-1.5 rounded-lg hover:bg-[hsl(260,15%,18%)] transition-colors"
           >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         )}
 
-        <h2 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent flex-1 min-w-0 truncate">
-          Conversation
-        </h2>
-        
-        <div className="flex-shrink-0">
-          <ShareButtons 
-            conversationId={conversationId}
-            userId={userId}
-            title="Découvrez cette conversation"
-          />
+        <div className="flex-1 min-w-0 pl-2 md:pl-0">
+          <h2 className="text-[hsl(42,50%,70%)] font-semibold text-lg truncate">
+            Conversation
+          </h2>
         </div>
+
+        <ShareButtons 
+          conversationId={conversationId}
+          userId={userId}
+        />
       </div>
 
-      {/* Zone des messages */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {loading && messages.length === 0 ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-20 w-20 border-4 border-purple-200 border-t-purple-600"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+      {/* Zone de messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 custom-scrollbar relative z-10">
+        {messages.length === 0 ? (
+          <div className="max-w-3xl mx-auto text-center py-12 space-y-6">
+            <div className="w-20 h-20 mx-auto bg-[hsl(0,60%,35%,0.15)] rounded-xl flex items-center justify-center border border-[hsl(0,60%,35%,0.25)]">
+              <svg className="w-12 h-12 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
             </div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-400">
-              <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-              </div>
-              <p className="text-xl font-semibold text-gray-600">Commencez la conversation</p>
-              <p className="text-sm mt-2 text-gray-400">Posez une question à gemini AI</p>
+            <div>
+              <h3 className="text-xl font-bold text-[hsl(42,50%,54%)] tracking-wide uppercase mb-2">
+                Nouvelle Audience
+              </h3>
+              <p className="text-[hsl(42,30%,65%)] text-sm">
+                Posez votre première question au Sorcier Suprême
+              </p>
             </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-6">
-            {messages.map((message, index) => (
+          messages.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`flex gap-4 animate-fadeIn ${
+                msg.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}
+            >
+              {msg.role === 'assistant' && (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(0,60%,35%)] to-[hsl(0,60%,40%)] flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.3)]">
+                  <svg className="w-6 h-6 text-[hsl(42,50%,70%)]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
+                  </svg>
+                </div>
+              )}
+
               <div
-                key={message.id || index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+                className={`max-w-3xl ${
+                  msg.role === 'user'
+                    ? 'bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] rounded-2xl rounded-tr-sm border border-[hsl(0,50%,40%,0.3)] shadow-[0_0_15px_rgba(139,0,0,0.2)]'
+                    : 'bg-[hsl(260,20%,10%)] text-[hsl(42,30%,82%)] rounded-2xl rounded-tl-sm border border-[hsl(260,15%,14%)]'
+                } px-5 py-4`}
               >
-                <div className="flex gap-3 max-w-[85%]">
-                  {message.role === 'assistant' && (
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                  )}
-
-                  <div
-                    className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg p-3 bg-gray-100 max-w-[80%] ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white'
-                        : 'bg-white text-gray-800 border border-gray-100'
-                    }`}
-                  >
-                    {renderMessageContent(message)}
-                    <p
-                      className={`text-xs mt-3 flex items-center gap-1 ${
-                        message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
-                      }`}
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-
-                  {message.role === 'user' && (
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/30">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+                <div
+                  className="prose prose-invert max-w-none prose-p:my-2 prose-li:my-1 prose-headings:text-[hsl(42,50%,54%)] prose-headings:font-bold prose-headings:uppercase prose-headings:tracking-wide prose-code:text-[hsl(142,70%,55%)] prose-code:bg-[hsl(260,25%,7%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-a:text-[hsl(42,50%,60%)] hover:prose-a:text-[hsl(42,50%,70%)]"
+                  dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
+                />
               </div>
-            ))}
 
-            {loading && messages.length > 0 && (
-              <div className="flex justify-start animate-fadeIn">
-                <div className="flex gap-3 max-w-[85%]">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-gray-100">
-                    <div className="flex space-x-2">
-                      <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce"></div>
-                      <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                  </div>
+              {msg.role === 'user' && (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(42,50%,54%)] to-[hsl(42,45%,60%)] flex items-center justify-center flex-shrink-0 text-[hsl(260,25%,7%)] font-bold text-lg shadow-[0_0_20px_rgba(212,175,55,0.2)]">
+                  {userId?.[0]?.toUpperCase() || 'U'}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          ))
+        )}
 
-            <div ref={messagesEndRef} />
+        {loading && (
+          <div className="flex gap-4 justify-start animate-fadeIn">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(0,60%,35%)] to-[hsl(0,60%,40%)] flex items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.3)]">
+              <svg className="w-6 h-6 text-[hsl(42,50%,70%)]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
+              </svg>
+            </div>
+            <div className="bg-[hsl(260,20%,10%)] rounded-2xl rounded-tl-sm px-5 py-4 border border-[hsl(260,15%,14%)]">
+              <div className="flex gap-2 items-center">
+                <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+              </div>
+            </div>
           </div>
         )}
+
+        {error && (
+          <div className="max-w-3xl mx-auto bg-[hsl(0,60%,35%,0.15)] border border-[hsl(0,60%,35%,0.3)] rounded-xl p-4 flex items-start gap-3">
+            <svg className="w-6 h-6 text-[hsl(0,50%,60%)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-[hsl(0,50%,60%)] uppercase tracking-wide mb-1">Erreur</p>
+              <p className="text-sm text-[hsl(42,30%,65%)]">{error}</p>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* 🔥 ZONE DE SAISIE STYLE GROK - Barre arrondie comme l'image */}
-      <div className="bg-[#212121] border-t border-gray-800">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
-          <form onSubmit={handleSendMessage}>
-            {/* Aperçu des fichiers attachés */}
-            {attachedFiles.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {attachedFiles.map((file, index) => (
-                  <div key={index} className="relative group">
-                    {file.preview ? (
-                      <div className="relative">
-                        <img 
-                          src={file.preview} 
-                          alt={file.name}
-                          className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-lg border border-gray-700"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile(index)}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 text-xs"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="relative flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-lg border border-gray-700">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-xs text-gray-300 max-w-[80px] truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile(index)}
-                          className="text-gray-500 hover:text-white text-sm"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
+      {/* Zone de saisie */}
+      <div className="border-t border-[hsl(260,15%,14%)] bg-[hsl(260,25%,7%)] relative z-10">
+        <div className="max-w-5xl mx-auto p-4">
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="relative bg-[hsl(260,20%,10%)] rounded-lg border border-[hsl(260,15%,14%)] p-2 flex items-center gap-2 group"
+                >
+                  {file.preview ? (
+                    <img src={file.preview} alt={file.name} className="w-12 h-12 object-cover rounded" />
+                  ) : (
+                    <div className="w-12 h-12 bg-[hsl(260,15%,14%)] rounded flex items-center justify-center">
+                      <svg className="w-6 h-6 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="text-xs text-[hsl(42,30%,65%)] max-w-[120px] truncate">
+                    {file.name}
                   </div>
-                ))}
-              </div>
-            )}
+                  <button
+                    onClick={() => handleRemoveFile(idx)}
+                    className="ml-2 p-1 rounded-full bg-[hsl(0,60%,35%,0.2)] hover:bg-[hsl(0,60%,35%,0.4)] text-[hsl(0,50%,60%)] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-            {/* Barre de saisie style Grok - Arrondie complète */}
-            <div className="flex items-center gap-2 sm:gap-3 bg-[#2a2a2a] rounded-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-700 hover:border-gray-600 focus-within:border-gray-500 transition-colors">
-              {/* Input file cachés */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={(e) => handleFileSelect(e, 'document')}
-                accept="application/pdf,.doc,.docx,.txt"
-                multiple
-                className="hidden"
-              />
-              <input
-                ref={imageInputRef}
-                type="file"
-                onChange={(e) => handleFileSelect(e, 'image')}
-                accept="image/*"
-                multiple
-                className="hidden"
-              />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => handleFileSelect(e, 'file')}
+            multiple
+            accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
+          />
+          <input
+            ref={imageInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => handleFileSelect(e, 'image')}
+            multiple
+            accept="image/*"
+          />
 
-              {/* Bouton pièce jointe */}
+          <form onSubmit={handleSendMessage} className="relative">
+            <div className="bg-[hsl(260,20%,10%)] rounded-2xl border border-[hsl(260,15%,14%)] focus-within:border-[hsl(42,50%,54%,0.3)] transition-all shadow-[0_4px_20px_rgba(0,0,0,0.3)] flex items-end gap-3 px-4 py-3">
               <div className="relative" ref={attachMenuRef}>
                 <button
                   type="button"
                   onClick={() => setShowAttachMenu(!showAttachMenu)}
-                  className="text-gray-400 hover:text-gray-200 transition-colors p-1.5 hover:bg-gray-700 rounded-lg"
-                  title="Joindre un fichier"
+                  className="text-[hsl(42,50%,54%)] hover:text-[hsl(42,45%,60%)] transition-colors p-1.5 hover:bg-[hsl(42,50%,54%,0.08)] rounded-lg"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                 </button>
 
-                {/* Menu déroulant */}
                 {showAttachMenu && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 min-w-[200px] z-50">
+                  <div className="absolute bottom-full left-0 mb-2 bg-[hsl(260,20%,10%)] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-[hsl(260,15%,14%)] py-2 min-w-[220px] z-50">
                     <button
                       type="button"
                       onClick={() => handleAttachClick('image')}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[hsl(260,15%,14%)] transition-colors text-left"
                     >
-                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-gray-200 text-sm">Téléverser une image</span>
+                      <span className="text-[hsl(42,30%,82%)] text-sm font-medium">Téléverser une image</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleAttachClick('document')}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[hsl(260,15%,14%)] transition-colors text-left"
                     >
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-[hsl(142,70%,45%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <span className="text-gray-200 text-sm">Téléverser un document</span>
+                      <span className="text-[hsl(42,30%,82%)] text-sm font-medium">Téléverser un document</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => handleAttachClick('camera')}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[hsl(260,15%,14%)] transition-colors text-left"
                     >
-                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-[hsl(270,50%,50%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-gray-200 text-sm">Prendre une photo</span>
+                      <span className="text-[hsl(42,30%,82%)] text-sm font-medium">Prendre une photo</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Textarea - Style Grok exact avec retour à la ligne */}
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="How can Grok help?"
-                className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm sm:text-[15px] resize-none overflow-hidden"
+                placeholder="Posez votre question au Sorcier Suprême..."
+                className="flex-1 bg-transparent text-[hsl(42,30%,82%)] placeholder-[hsl(260,10%,35%)] focus:outline-none text-sm sm:text-[15px] resize-none overflow-hidden"
                 disabled={loading}
                 rows={1}
                 onInput={(e) => {
@@ -591,48 +476,45 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
                 }}
               />
 
-              {/* Boutons à droite - Style Grok */}
               <div className="flex items-center gap-2">
-                {/* Sélecteur de modèle IA */}
                 <div className="relative" ref={modelMenuRef}>
                   <button
                     type="button"
                     onClick={() => setShowModelMenu(!showModelMenu)}
-                    className="text-gray-300 hover:text-white transition-colors hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-700 rounded-lg text-sm"
+                    className="text-[hsl(42,30%,65%)] hover:text-[hsl(42,30%,82%)] transition-colors hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-[hsl(260,15%,14%)] rounded-lg text-sm font-medium"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span>{selectedModel === 'gemini' ? 'Gemini 2.5' : 'Llama 3.3'}</span>
+                    <span>{selectedModel === 'gemini' ? 'Gemini' : 'Llama'}</span>
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
-                  {/* Menu déroulant modèles */}
                   {showModelMenu && (
-                    <div className="absolute bottom-full right-0 mb-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 min-w-[220px] z-50">
+                    <div className="absolute bottom-full right-0 mb-2 bg-[hsl(260,20%,10%)] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-[hsl(260,15%,14%)] py-2 min-w-[240px] z-50">
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedModel('gemini');
                           setShowModelMenu(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left ${
-                          selectedModel === 'gemini' ? 'bg-gray-700' : ''
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[hsl(260,15%,14%)] transition-colors text-left ${
+                          selectedModel === 'gemini' ? 'bg-[hsl(260,15%,14%)]' : ''
                         }`}
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                             </svg>
-                            <span className="text-gray-200 font-medium text-sm">Gemini 2.5 Flash</span>
+                            <span className="text-[hsl(42,30%,82%)] font-bold text-sm uppercase tracking-wide">Gemini 2.5</span>
                           </div>
-                          <p className="text-xs text-gray-400 mt-0.5 ml-7">Rapide et polyvalent</p>
+                          <p className="text-xs text-[hsl(42,30%,65%)] mt-0.5 ml-7">Rapide et polyvalent</p>
                         </div>
                         {selectedModel === 'gemini' && (
-                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-[hsl(142,70%,45%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -644,21 +526,21 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
                           setSelectedModel('llama');
                           setShowModelMenu(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition-colors text-left ${
-                          selectedModel === 'llama' ? 'bg-gray-700' : ''
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[hsl(260,15%,14%)] transition-colors text-left ${
+                          selectedModel === 'llama' ? 'bg-[hsl(260,15%,14%)]' : ''
                         }`}
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-[hsl(270,50%,50%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
-                            <span className="text-gray-200 font-medium text-sm">Llama 3.3 70B</span>
+                            <span className="text-[hsl(42,30%,82%)] font-bold text-sm uppercase tracking-wide">Llama 3.3</span>
                           </div>
-                          <p className="text-xs text-gray-400 mt-0.5 ml-7">Puissant et précis</p>
+                          <p className="text-xs text-[hsl(42,30%,65%)] mt-0.5 ml-7">Puissant et précis</p>
                         </div>
                         {selectedModel === 'llama' && (
-                          <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-[hsl(142,70%,45%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -667,20 +549,33 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
                   )}
                 </div>
 
-                {/* Bouton micro */}
                 <button
                   type="button"
                   onClick={handleMicrophoneToggle}
-                  className={`transition-all p-1.5 sm:p-2 rounded-full ${
+                  className={`transition-all p-1.5 sm:p-2 rounded-lg ${
                     isRecording 
-                      ? 'bg-red-600 text-white animate-pulse' 
-                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                      ? 'bg-[hsl(0,60%,35%)] text-[hsl(42,50%,70%)] animate-pulse shadow-[0_0_15px_rgba(139,0,0,0.4)]' 
+                      : 'text-[hsl(42,30%,65%)] hover:text-[hsl(42,30%,82%)] hover:bg-[hsl(260,15%,14%)]'
                   }`}
                   title={isRecording ? "Arrêter l'enregistrement" : "Commande vocale"}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={loading || (!inputValue.trim() && attachedFiles.length === 0)}
+                  className="bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] disabled:from-[hsl(260,15%,14%)] disabled:to-[hsl(260,15%,14%)] text-[hsl(42,50%,70%)] disabled:text-[hsl(260,10%,35%)] p-2 rounded-lg transition-all disabled:cursor-not-allowed shadow-[0_0_15px_rgba(139,0,0,0.2)] disabled:shadow-none active:scale-95"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-[hsl(42,50%,54%,0.3)] border-t-[hsl(42,50%,54%)] rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
@@ -701,6 +596,20 @@ export default function ChatArea({ conversationId, userId, onUpdateTitle, onOpen
         }
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { 
+          width: 6px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { 
+          background: hsl(260,25%,7%); 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+          background: hsl(42,50%,54%,0.2); 
+          border-radius: 20px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+          background: hsl(42,50%,54%,0.3); 
         }
       `}</style>
     </div>
