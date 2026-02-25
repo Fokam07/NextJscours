@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
@@ -120,7 +120,6 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOut();
-    push('home', true);
     setCurrentConversationId(null);
     setCurrentRoleId(null);
     setCvState(null);
@@ -199,9 +198,9 @@ export default function Home() {
         user={user}
         onSelectRole={handleSelectRole}
         currentRoleId={currentRoleId}
-        onShowCVGenerator={() => setCvState('generator')}
-        // Indique à la sidebar quel onglet est actif
-        isShowingCV={cvState !== null}
+        onShowCVGenerator={() => setShowCVGenerator(true)}
+        onHideCVGenerator={() => { setShowCVGenerator(false); setGeneratedData(null); }}
+        isShowingCV={showCVGenerator || !!generatedData}
       />
 
       {/* Panneau principal */}
