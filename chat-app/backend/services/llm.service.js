@@ -472,7 +472,26 @@ export const llmServicer = {
   },
 
   
-  async generateCv({offre, poste, instructions, existing}) {
+
+
+  /**
+   * Vider le cache du chat pour une conversation (appele a la suppression)
+   */
+  clearChatCache(conversationId) {
+    if (conversationId) {
+      const deleted = chats.delete(conversationId);
+      console.log('[LLM] Cache chat', deleted ? 'supprime' : 'introuvable', 'pour:', conversationId);
+    } else {
+      chats.clear();
+      console.log('[LLM] Cache chat entierement vide');
+    }
+  },
+
+  deleteChatSession(conversationId) {
+    this.clearChatCache(conversationId);
+  },
+
+    async generateCv({offre, poste, instructions, existing}) {
 
     try {
       var exisingPart = null;
@@ -510,22 +529,4 @@ export const llmServicer = {
     }
   },
 
-
-  clearChatCache(conversationId = null) {
-    if (conversationId) {
-      chats.delete(conversationId);
-      console.log(`[LLM Gemini] Chat supprimé pour conversation: ${conversationId}`);
-    } else {
-      chats.clear();
-      console.log("[LLM Gemini] Tous les chats en cache ont été vidés");
-    }
-  },
-};
-
-
-
-
-
-
-
-
+  };
