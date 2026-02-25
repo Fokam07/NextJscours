@@ -17,7 +17,9 @@ export const llmService = {
    */
   async generateResponse(messages, attachments = [], systemPrompt = null) {
     try {
-      // Construire le contexte avec les pièces jointes si présentes
+      // ✅ Ne valide la clé QUE quand on appelle la fonction
+      const apiKey = requireEnv("GROQ_API_KEY");
+
       let enrichedMessages = [...messages];
 
       // Injecter le system prompt si fourni
@@ -46,6 +48,74 @@ export const llmService = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: enrichedMessages,
+            temperature: 0.7,
+            max_tokens: 2048,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(
+          `Groq API Error: ${error?.error?.message || response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+
+      return {
+        content: data.choices?.[0]?.message?.content ?? "",
+        model: data.model,
+        tokens: data.usage?.total_tokens ?? 0,
+      };
+    } catch (error) {
+      console.error("Erreur Groq LLM:", error);
+      // ✅ Message clair côté API route
+      throw new Error(error.message || "Erreur lors de la génération (Groq)");
+    }
+  },
+  
+  async generateQuiz({systemPrompt, cvText, offre}) {
+    try {
+      // Construire le contexte avec les pièces jointes si présentes
+      let enrichedMessages = [];
+
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
+
+      if(cvText && offre){
+        enrichedMessages.push({
+          role: "user",
+          content:`
+            ok peut tu donc me generer ce ce quiz
+            voici le cv dont j'ai extrait le text er l'offre
+
+            ### Offre d’emploi :
+            ${offre}
+
+            ### CV du candidat :
+            ${cvText}
+            
+          `
+        })
+      }
+
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
           },
           body: JSON.stringify({
@@ -65,6 +135,9 @@ export const llmService = {
       }
 
       const data = await response.json();
+      const raw = data.choices[0].message.content;
+      const json = raw.replace(/```json\n?/, '').replace(/\n?```$/, '').trim();
+      const parsed = JSON.parse(json);
 
       return {
         content: data.choices[0].message.content,
@@ -76,16 +149,78 @@ export const llmService = {
       throw new Error("Erreur lors de la génération de la réponse");
     }
   },
+  
+  async generateQuiz({systemPrompt, cvText, offre}) {
+    try {
+      // Construire le contexte avec les pièces jointes si présentes
+      let enrichedMessages = [];
 
-  /**
-   * Générer un titre intelligent pour une conversation
-   * Basé sur le premier message de l'utilisateur
-   * @param {string} firstMessage - Premier message de la conversation
-   * @returns {string} - Titre généré (max 50 caractères)
-   */
+      // Injecter le system prompt si fourni
+      if (systemPrompt) {
+        enrichedMessages = [
+          { role: "system", content: systemPrompt },
+          ...enrichedMessages
+        ];
+      }
+
+      if(cvText && offre){
+        enrichedMessages.push({
+          role: "user",
+          content:`
+            ok peut tu donc me generer ce ce quiz
+            voici le cv dont j'ai extrait le text er l'offre
+
+            ### Offre d’emploi :
+            ${offre}
+
+            ### CV du candidat :
+            ${cvText}
+            
+          `
+        })
+      }
+
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: enrichedMessages,
+            temperature: 0.7,
+            max_tokens: 2048,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          `Groq API Error: ${error.error?.message || "Unknown error"}`,
+        );
+      }
+
+      const data = await response.json();
+      const raw = data.choices[0].message.content;
+      const json = raw.replace(/```json\n?/, '').replace(/\n?```$/, '').trim();
+      const parsed = JSON.parse(json);
+
+      return {
+        data: parsed
+      };
+    } catch (error) {
+      console.error("Erreur Groq LLM:", error);
+      throw new Error("Erreur lors de la génération du quiz");
+    }
+  },
+
   async generateConversationTitle(firstMessage) {
     try {
-      // Nettoyer et limiter le message
+      const apiKey = requireEnv("GROQ_API_KEY");
       const cleanMessage = firstMessage.trim().substring(0, 300);
 
       const messages = [
@@ -112,7 +247,7 @@ export const llmService = {
         },
         {
           role: "user",
-          content: `Génère un titre court (3-6 mots) pour cette conversation:\n\n"${cleanMessage}"`,
+          content: `Génère un titre court (3-6 mots) pour:\n\n"${cleanMessage}"`,
         },
       ];
 
@@ -122,7 +257,7 @@ export const llmService = {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
@@ -133,18 +268,12 @@ export const llmService = {
         },
       );
 
-      if (!response.ok) {
-        throw new Error("Erreur API Groq");
-      }
+      if (!response.ok) throw new Error("Erreur API Groq (title)");
 
       const data = await response.json();
-      let title = data.choices[0].message.content.trim();
+      let title = (data.choices?.[0]?.message?.content ?? "").trim();
 
-      // Nettoyer le titre
-      title = title
-        .replace(/^["']|["']$/g, "") // Retirer les guillemets
-        .replace(/\.$/, "") // Retirer le point final
-        .substring(0, 50); // Limiter à 50 caractères
+      title = title.replace(/^["']|["']$/g, "").replace(/\.$/, "").substring(0, 50);
 
       return title || this.generateSimpleTitle(firstMessage);
     } catch (error) {
@@ -153,12 +282,6 @@ export const llmService = {
     }
   },
 
-  /**
-   * Générer un titre simple en cas d'échec de l'IA
-   * Basé sur les premiers mots du message
-   * @param {string} message - Message original
-   * @returns {string} - Titre simple
-   */
   generateSimpleTitle(message) {
     const cleaned = message.trim();
     const words = cleaned.split(/\s+/).slice(0, 5);
@@ -212,18 +335,20 @@ export const llmService = {
   },
 
   estimateTokens(text) {
-    return Math.ceil(text.length / 4);
+    return Math.ceil((text ?? "").length / 4);
   },
 
   canHandleContext(modelId, messages) {
     const model = this.getAvailableModels().find((m) => m.id === modelId);
     if (!model) return false;
 
-    const totalText = messages.map((m) => m.content).join(" ");
+    const totalText = (messages ?? []).map((m) => m.content).join(" ");
     const estimatedTokens = this.estimateTokens(totalText);
 
     return estimatedTokens < model.maxTokens * 0.8;
   },
+
+
 
   
 };
@@ -232,6 +357,33 @@ export const llmService = {
 
 const ai = new GoogleGenAI({});
 const chats = new Map();
+
+/** ✅ Supabase admin (server only) */
+import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import os from "os";
+
+/** Télécharge un fichier depuis Supabase Storage et renvoie un Buffer */
+async function downloadFromStorage(bucket, path) {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+  if (error) throw error;
+
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/** Sauvegarde un fichier temporaire sur le disque (temp Windows/Linux) */
+async function saveTempFile(buffer, filename) {
+  const dir = join(os.tmpdir(), "chat-app-uploads");
+  await mkdir(dir, { recursive: true });
+
+  const safeName = String(filename || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const tempPath = join(dir, `${Date.now()}_${crypto.randomUUID()}_${safeName}`);
+
+  await writeFile(tempPath, buffer);
+  return tempPath;
+}
 
 export const llmServicer = {
   /**
@@ -250,6 +402,8 @@ export const llmServicer = {
     systemPrompt = null
   ) {
     try {
+      const ai = getGeminiClient();
+
       let chat = chats.get(conversationId);
       
       if (!chat) {
@@ -311,7 +465,6 @@ export const llmServicer = {
         model: response.modelVersion,
         tokens: response.usageMetadata.totalTokenCount,
       };
-
     } catch (error) {
       console.error("[LLM] Erreur Gemini:", error);
       throw new Error("Erreur lors de la génération de la réponse");
@@ -374,6 +527,6 @@ export const llmServicer = {
       console.log("erreur gemini cv: ", error);
         throw new Error("erreur de la generation du cv")
     }
+  },
 
-  }
-};
+  };
