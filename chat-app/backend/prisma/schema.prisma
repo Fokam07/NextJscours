@@ -1,27 +1,45 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL")
+  relationMode = "prisma"
 }
 
+// ─── ENUM ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CANDIDAT
+  RECRUTEUR
+  ADMIN
+  @@map("userRole")
+}
+
+// ─── MODÈLES PRISMA (tables "User", "Conversation", etc.) ──────────────────
+
 model User {
-  id        String   @id
+  id        String   @id @db.Uuid
   email     String   @unique
   username  String   @unique
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  role      UserRole @default(CANDIDAT)
 
   conversations Conversation[]
   messages      Message[]
+  offres        Offre[]         
+  candidatures  Candidature[]     
+
+
+  @@map("User")
 }
 
 model Conversation {
-  id        String   @id @default(uuid())
+  id        String   @id @db.Uuid @default(uuid())
   title     String   @default("Nouvelle conversation")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,39 +49,150 @@ model Conversation {
 
   messages Message[]
 
-  shareId     String?  @unique   
-  isPublic    Boolean  @default(false)
+  shareId  String?  @unique
+  isPublic Boolean  @default(false)
 
   @@index([userId])
   @@index([shareId])
+  @@map("Conversation")
 }
 
 model Message {
-  id             String       @id @default(uuid())
-  content        String
-  role           String
-  createdAt      DateTime     @default(now())
+  id        String   @id @db.Uuid @default(uuid())
+  content   String
+  role      String
+  createdAt DateTime @default(now())
 
   conversationId String?
   conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
-  userId         String?
-  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  model          String?
-  tokens         Int?
-  attachments    Json?
+  model       String?
+  tokens      Int?
+  attachments Json?
 
   @@index([conversationId])
   @@index([userId])
+  @@map("Message")
 }
 
 model Prompt {
   id        String   @id @default(uuid())
-  name      String   @unique           // ex: "cv_master_prompt"
-  category  String                 // ex: "cv", "system", "template"
-  content   String                 // ton prompt complet
+  name      String   @unique
+  category  String
+  content   String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@map("Prompt")
+}
+
+// ─── NOUVELLES TABLES (snake_case, sans relation vers User Prisma) ──────────
+// Ces tables référencent auth.users de Supabase directement,
+// donc on ne crée PAS de relation Prisma vers le model User ci-dessus.
+
+model Role {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(100)
+  description  String?
+  systemPrompt String    @map("system_prompt")
+  icon         String?   @db.VarChar(50)
+  category     String?   @db.VarChar(50)
+  userId       String?   @map("userid") @db.Uuid
+  visibility   String?   @default("private") @db.VarChar(20)
+  isActive     Boolean?  @default(true) @map("is_active")
+  usageCount   Int?      @default(0) @map("usage_count")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz
+
+  roleShares RoleShare[]
+
+  @@map("roles")
+}
+
+model RoleShare {
+  id              String    @id @default(uuid()) @db.Uuid
+  roleId          String?   @map("role_id") @db.Uuid
+  sharedWithUserId String?  @map("shared_with_user_id") @db.Uuid
+  sharedByUserId  String?   @map("shared_by_user_id") @db.Uuid
+  canEdit         Boolean?  @default(false) @map("can_edit")
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  role Role? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, sharedWithUserId])
+  @@index([sharedWithUserId], map: "idx_role_shares_shared_with")
+  @@index([roleId], map: "idx_role_shares_role_id")
+  @@index([sharedByUserId], map: "idx_role_shares_shared_by")
+  @@map("role_shares")
+}
+
+model Offre {
+  id          String    @id @default(uuid()) @db.Uuid
+  content     String
+  recruteurId     String    @map("recruteur_id") @db.Uuid
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz
+
+  user  User   @relation( fields: [recruteurId], references: [id], onDelete: Cascade)
+  candidatures Candidature[]
+  quizs        Quiz[]
+
+  @@index([recruteurId], map: "idx_offres_recruteur")
+  @@map("offres")
+}
+
+model Candidature {
+  id             String    @id @default(uuid()) @db.Uuid
+  offreId        String    @map("offre_id") @db.Uuid
+  candidatId     String    @map("candidat_id") @db.Uuid
+  cvUrl          String?   @map("cv_url")
+  matchingScore  Decimal?  @default(0) @map("matching_score") @db.Decimal(5, 2)
+  statut         String?   @default("en_attente")
+  // quiz_requis est une colonne GENERATED, Prisma ne peut pas la gérer en migration
+  // mais on peut la lire en ajoutant le champ ci-dessous
+ // quizRequis     Boolean?  @map("quiz_requis")
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  user           User   @relation(fields: [candidatId], references: [id], onDelete: Cascade)
+  offre        Offre         @relation(fields: [offreId], references: [id], onDelete: Cascade)
+  quizResultats QuizResultat[]
+
+  @@unique([offreId, candidatId])
+  @@index([offreId], map: "idx_candidatures_offre")
+  @@index([candidatId], map: "idx_candidatures_candidat")
+  @@index([matchingScore], map: "idx_candidatures_score")
+  @@map("candidatures")
+}
+
+model Quiz {
+  id        String    @id @default(uuid()) @db.Uuid
+  data      Json
+  offreId   String    @map("offre_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz
+
+  offre         Offre          @relation(fields: [offreId], references: [id], onDelete: Cascade)
+  quizResultats QuizResultat[]
+
+  @@index([offreId], map: "idx_quizs_offre")
+  @@map("quizs")
+}
+
+model QuizResultat {
+  id             String    @id @default(uuid()) @db.Uuid
+  candidatureId  String    @map("candidature_id") @db.Uuid
+  quizId         String    @map("quiz_id") @db.Uuid
+  reponses       Json
+  score          Decimal?  @db.Decimal(5, 2)
+  completedAt    DateTime? @default(now()) @map("completed_at") @db.Timestamptz
+
+  candidature Candidature @relation(fields: [candidatureId], references: [id], onDelete: Cascade)
+  quiz        Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([candidatureId, quizId])
+  @@index([candidatureId], map: "idx_quiz_resultats_candidature")
+  @@map("quiz_resultats")
 }

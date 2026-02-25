@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban – Scénario 2 Cloud PaaS + Containers | Agile Keyce IT</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-bottom: 1px solid #334155;
+  padding: 20px 32px; display: flex; align-items: center; gap: 16px;
+}
+.logo { width: 44px; height: 44px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: white; }
+header h1 { font-size: 1.15rem; font-weight: 700; color: #f1f5f9; }
+header p { font-size: 0.78rem; color: #94a3b8; margin-top: 2px; }
+.sprint-badge { margin-left: auto; background: #1d4ed8; color: #bfdbfe; padding: 4px 14px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
+.legend { padding: 10px 24px 16px; display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.74rem; color: #94a3b8; align-items: center; }
+.legend-label { font-weight: 700; color: #64748b; margin-right: 2px; }
+.board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 0 20px 40px; min-width: 1050px; }
+.column { background: #1e293b; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #334155; min-height: 480px; }
+.col-backlog { border-top: 3px solid #64748b; }
+.col-todo { border-top: 3px solid #f59e0b; }
+.col-inprogress { border-top: 3px solid #3b82f6; }
+.col-review { border-top: 3px solid #a855f7; }
+.col-done { border-top: 3px solid #22c55e; }
+.col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.col-title { font-size: 0.77rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 7px; }
+.col-dot { width: 8px; height: 8px; border-radius: 50%; }
+.col-backlog .col-dot { background: #64748b; }
+.col-todo .col-dot { background: #f59e0b; }
+.col-inprogress .col-dot { background: #3b82f6; }
+.col-review .col-dot { background: #a855f7; }
+.col-done .col-dot { background: #22c55e; }
+.col-count { background: #334155; color: #94a3b8; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.card { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; cursor: grab; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); border-color: #475569; }
+.card.dragging { opacity: 0.45; cursor: grabbing; }
+.column.drag-over { background: #1a2744; border-color: #3b82f6; }
+.card-id { font-size: 0.62rem; color: #475569; margin-bottom: 3px; }
+.card-category { font-size: 0.63rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 7px; padding: 2px 7px; border-radius: 4px; display: inline-block; }
+.cat-audit { background: #1c3554; color: #60a5fa; }
+.cat-archi { background: #1e1b4b; color: #a5b4fc; }
+.cat-secu  { background: #2d1a2e; color: #f472b6; }
+.cat-deploy{ background: #0d2918; color: #4ade80; }
+.cat-trans { background: #2d1b00; color: #fbbf24; }
+.card-title { font-size: 0.82rem; font-weight: 600; color: #f1f5f9; line-height: 1.4; margin-bottom: 10px; }
+.card-footer { display: flex; align-items: center; justify-content: space-between; }
+.assignee { display: flex; align-items: center; gap: 6px; font-size: 0.71rem; color: #94a3b8; }
+.avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 800; flex-shrink: 0; }
+.role-archi  { background: #4338ca; color: #e0e7ff; }
+.role-dev    { background: #047857; color: #d1fae5; }
+.role-netops { background: #b45309; color: #fef3c7; }
+.role-secops { background: #9d174d; color: #fce7f3; }
+.role-ops    { background: #0e7490; color: #cffafe; }
+.priority { font-size: 0.67rem; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+.p-high   { background: #450a0a; color: #fca5a5; }
+.p-medium { background: #431407; color: #fdba74; }
+.p-low    { background: #1a2e1a; color: #86efac; }
+.col-done .card { opacity: 0.7; }
+.col-done .card:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">AK</div>
+  <div>
+    <h1>Agile Keyce IT — Kanban Architecture</h1>
+    <p>Scénario 2 · Cloud PaaS + Containers · Modernisation plateforme SaaS</p>
+  </div>
+  <div class="sprint-badge">🚀 Sprint 1 en cours</div>
+</header>
+
+<div class="legend">
+  <span class="legend-label">Profils :</span>
+  <span style="display:flex;align-items:center;gap:5px"><span class="avatar role-archi">AR</span>Architecte</span>
+  <span style="display:flex;align-items:center;gap:5px"><span class="avatar role-dev">DV</span>Développeur</span>
+  <span style="display:flex;align-items:center;gap:5px"><span class="avatar role-netops">NO</span>NetOps</span>
+  <span style="display:flex;align-items:center;gap:5px"><span class="avatar role-secops">SO</span>SecOps</span>
+  <span style="display:flex;align-items:center;gap:5px"><span class="avatar role-ops">OP</span>Ops/SRE</span>
+  <span style="margin-left:12px" class="legend-label">Priorité :</span>
+  <span class="priority p-high">Haute</span>
+  <span class="priority p-medium">Moyenne</span>
+  <span class="priority p-low">Faible</span>
+  <span style="margin-left:12px;font-size:0.72rem;color:#475569">💡 Glissez-déposez les cartes entre colonnes</span>
+</div>
+
+<div class="board" id="board">
+  <div class="column col-backlog" id="col-backlog" ondragover="dragOver(event)" ondrop="drop(event,'col-backlog')">
+    <div class="col-header"><div class="col-title"><span class="col-dot"></span>Backlog</div><span class="col-count" id="count-col-backlog">0</span></div>
+  </div>
+  <div class="column col-todo" id="col-todo" ondragover="dragOver(event)" ondrop="drop(event,'col-todo')">
+    <div class="col-header"><div class="col-title"><span class="col-dot"></span>À faire</div><span class="col-count" id="count-col-todo">0</span></div>
+  </div>
+  <div class="column col-inprogress" id="col-inprogress" ondragover="dragOver(event)" ondrop="drop(event,'col-inprogress')">
+    <div class="col-header"><div class="col-title"><span class="col-dot"></span>En cours</div><span class="col-count" id="count-col-inprogress">0</span></div>
+  </div>
+  <div class="column col-review" id="col-review" ondragover="dragOver(event)" ondrop="drop(event,'col-review')">
+    <div class="col-header"><div class="col-title"><span class="col-dot"></span>En revue</div><span class="col-count" id="count-col-review">0</span></div>
+  </div>
+  <div class="column col-done" id="col-done" ondragover="dragOver(event)" ondrop="drop(event,'col-done')">
+    <div class="col-header"><div class="col-title"><span class="col-dot"></span>Terminé</div><span class="col-count" id="count-col-done">0</span></div>
+  </div>
+</div>
+
+<script>
+const cards = [
+  // BACKLOG (7 cartes)
+  { id:"ARC-01", col:"col-backlog", cat:"audit", catLabel:"Audit / Cadrage",       title:"Finaliser la cartographie applicative actuelle",                            role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"high"   },
+  { id:"ARC-02", col:"col-backlog", cat:"archi", catLabel:"Architecture cible",     title:"Choisir la base managée : PostgreSQL / Cloud SQL / RDS",                    role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"high"   },
+  { id:"ARC-03", col:"col-backlog", cat:"archi", catLabel:"Architecture cible",     title:"Définir l'orchestrateur container (GKE / EKS / AKS)",                      role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"high"   },
+  { id:"ARC-04", col:"col-backlog", cat:"trans", catLabel:"Transverse",             title:"Rédiger le Dossier d'Architecture Technique (DAT)",                        role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"medium" },
+  { id:"ARC-05", col:"col-backlog", cat:"deploy",catLabel:"Déploiement / Dev",      title:"Mettre en place le pipeline CI/CD (GitHub Actions / GitLab CI)",           role:"dev",    rLabel:"Développeur", rInit:"DV", p:"medium" },
+  { id:"ARC-06", col:"col-backlog", cat:"secu",  catLabel:"Sécu / Réseau",          title:"Définir la politique IAM et gestion des secrets (Vault / Secret Manager)", role:"secops", rLabel:"SecOps",      rInit:"SO", p:"high"   },
+  { id:"ARC-07", col:"col-backlog", cat:"deploy",catLabel:"Déploiement / Dev",      title:"Rédiger les manifests Kubernetes (Deployments, Services, Ingress)",        role:"ops",    rLabel:"Ops/SRE",     rInit:"OP", p:"medium" },
+  // À FAIRE (3 cartes)
+  { id:"ARC-08", col:"col-todo",    cat:"secu",  catLabel:"Sécu / Réseau",          title:"Valider les exigences de sécurité avec le RSSI (RGPD, ISO 27001)",         role:"secops", rLabel:"SecOps",      rInit:"SO", p:"high"   },
+  { id:"ARC-09", col:"col-todo",    cat:"deploy",catLabel:"Déploiement / Dev",      title:"Créer les Dockerfiles pour le backend (Node.js / Python)",                 role:"dev",    rLabel:"Développeur", rInit:"DV", p:"high"   },
+  { id:"ARC-10", col:"col-todo",    cat:"trans", catLabel:"Transverse",             title:"Planifier l'atelier de migration des données vers le cloud",               role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"medium" },
+  // EN COURS (3 cartes)
+  { id:"ARC-11", col:"col-inprogress", cat:"audit", catLabel:"Audit / Cadrage",    title:"Auditer les dépendances applicatives et API tierces",                      role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"high"   },
+  { id:"ARC-12", col:"col-inprogress", cat:"deploy",catLabel:"Déploiement / Dev",  title:"Containeriser le frontend React avec Dockerfile multi-stage",             role:"dev",    rLabel:"Développeur", rInit:"DV", p:"medium" },
+  { id:"ARC-13", col:"col-inprogress", cat:"secu",  catLabel:"Sécu / Réseau",      title:"Configurer le VPC, subnets et règles de pare-feu cloud",                  role:"netops", rLabel:"NetOps",      rInit:"NO", p:"high"   },
+  // EN REVUE (1 carte)
+  { id:"ARC-14", col:"col-review",     cat:"trans", catLabel:"Transverse",          title:"Revue technique du plan de reprise d'activité (PRA – RTO/RPO cibles)",    role:"ops",    rLabel:"Ops/SRE",     rInit:"OP", p:"medium" },
+  // TERMINÉ (1 carte)
+  { id:"ARC-15", col:"col-done",       cat:"audit", catLabel:"Audit / Cadrage",     title:"Étude comparative des 3 scénarios d'architecture validée",                role:"archi",  rLabel:"Architecte",  rInit:"AR", p:"high"   }
+];
+
+const catCls  = { audit:"cat-audit", archi:"cat-archi", secu:"cat-secu", deploy:"cat-deploy", trans:"cat-trans" };
+const pCls    = { high:"p-high", medium:"p-medium", low:"p-low" };
+const pLabel  = { high:"Haute", medium:"Moyenne", low:"Faible" };
+const roleCls = { archi:"role-archi", dev:"role-dev", netops:"role-netops", secops:"role-secops", ops:"role-ops" };
+
+function render() {
+  ['col-backlog','col-todo','col-inprogress','col-review','col-done'].forEach(id => {
+    document.getElementById(id).querySelectorAll('.card').forEach(c => c.remove());
+  });
+  cards.forEach(c => {
+    const col = document.getElementById(c.col);
+    const d = document.createElement('div');
+    d.className = 'card'; d.draggable = true; d.id = c.id;
+    d.ondragstart = e => { draggedId = c.id; d.classList.add('dragging'); };
+    d.ondragend   = () => d.classList.remove('dragging');
+    d.innerHTML = `
+      <div class="card-id">${c.id}</div>
+      <div class="card-category ${catCls[c.cat]}">${c.catLabel}</div>
+      <div class="card-title">${c.title}</div>
+      <div class="card-footer">
+        <div class="assignee"><div class="avatar ${roleCls[c.role]}">${c.rInit}</div>${c.rLabel}</div>
+        <span class="priority ${pCls[c.p]}">${pLabel[c.p]}</span>
+      </div>`;
+    col.appendChild(d);
+  });
+  ['col-backlog','col-todo','col-inprogress','col-review','col-done'].forEach(id => {
+    document.getElementById('count-'+id).textContent = cards.filter(c => c.col === id).length;
+  });
+}
+
+let draggedId = null;
+function dragOver(e) {
+  e.preventDefault();
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+function drop(e, colId) {
+  e.preventDefault();
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  const card = cards.find(c => c.id === draggedId);
+  if (card) { card.col = colId; render(); }
+}
+
+render();
+</script>
+</body>
+</html>
