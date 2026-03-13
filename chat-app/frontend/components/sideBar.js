@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import RoleModal from './RoleModal';
+import { useRouter } from 'next/navigation';
 
 export default function Sidebar({
   conversations,
@@ -15,6 +16,7 @@ export default function Sidebar({
   onSelectRole,
   currentRoleId,
   onShowCVGenerator,
+  onHideCVGenerator,
   isShowingCV = false,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -28,12 +30,10 @@ export default function Sidebar({
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
+  const router = useRouter();
+
   useEffect(() => {
-    if (isShowingCV) {
-      setActiveTab('cv');
-    } else if (activeTab === 'cv') {
-      setActiveTab('history');
-    }
+    setActiveTab(isShowingCV ? 'cv' : 'history');
   }, [isShowingCV]);
 
   const loadRoles = useCallback(async () => {
@@ -206,7 +206,7 @@ export default function Sidebar({
               }`}
             >
               <button
-                onClick={() => onSelectConversation(conv.id)}
+                onClick={() => { onSelectConversation(conv.id); onHideCVGenerator?.(); }}
                 className="w-full text-left px-3 py-3 flex items-center gap-3"
               >
                 <div className={`w-2 h-2 rounded-full ${
@@ -378,7 +378,7 @@ export default function Sidebar({
         )}
 
         <button
-          onClick={onNewConversation}
+          onClick={() => { onNewConversation(); onHideCVGenerator?.(); }}
           className="w-full h-11 bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] text-[hsl(42,50%,70%)] border border-[hsl(0,50%,40%,0.3)] rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_15px_rgba(139,0,0,0.2)] font-bold uppercase tracking-wide"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,11 +386,24 @@ export default function Sidebar({
           </svg>
           {(isExpanded || isPinned) && <span className="text-sm">Nouvelle Audience</span>}
         </button>
+        <button
+  onClick={() => router.push('/quiz')}
+  className={`mt-3 w-full bg-gray-800/60 hover:bg-gray-800 text-white py-3 rounded-xl flex items-center justify-center gap-2 transition-all font-medium border border-gray-700/50 hover:border-purple-500/40 ${
+    !isExpanded && !isPinned ? 'px-0' : 'px-4'
+  }`}
+  title={!isExpanded && !isPinned ? 'Générateur de quiz' : ''}
+>
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-7 4h8a2 2 0 002-2V6a2 2 0 00-2-2H9a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+  {(isExpanded || isPinned) && <span>Générateur de quiz</span>}
+</button>
+
 
         {(isExpanded || isPinned) && (
           <div className="grid grid-cols-3 gap-1 p-1 bg-[hsl(260,20%,8%)] rounded-xl border border-[hsl(260,15%,14%)]">
             <button
-              onClick={() => setActiveTab('history')}
+              onClick={() => { setActiveTab('history'); onHideCVGenerator?.(); }}
               className={`py-2 text-[10px] font-bold uppercase tracking-[0.15em] rounded-lg transition-all ${
                 activeTab === 'history' 
                   ? 'bg-[hsl(0,60%,35%,0.2)] text-[hsl(42,50%,54%)] border border-[hsl(0,60%,35%,0.3)]' 
@@ -400,7 +413,7 @@ export default function Sidebar({
               Archive
             </button>
             <button
-              onClick={() => setActiveTab('roles')}
+              onClick={() => { setActiveTab('roles'); onHideCVGenerator?.(); }}
               className={`py-2 text-[10px] font-bold uppercase tracking-[0.15em] rounded-lg transition-all ${
                 activeTab === 'roles' 
                   ? 'bg-[hsl(270,50%,40%,0.2)] text-[hsl(42,50%,54%)] border border-[hsl(270,50%,40%,0.3)]' 

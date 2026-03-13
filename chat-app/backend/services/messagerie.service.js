@@ -25,7 +25,7 @@ export const messageService = {
         userId: role === 'user' ? userId : null,
         model,
         tokens,
-        attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
+        attachments: attachments.length > 0 ? attachments : null,
       },
     });
 
@@ -232,7 +232,7 @@ export const messageService = {
 
     return messages.map(msg => ({
       ...msg,
-      attachments: msg.attachments ? JSON.parse(msg.attachments) : [],
+      attachments: Array.isArray(msg.attachments) ? msg.attachments : [],
     }));
   },
 
@@ -253,7 +253,7 @@ export const messageService = {
 
     return {
       ...message,
-      attachments: message.attachments ? JSON.parse(message.attachments) : [],
+      attachments: Array.isArray(message.attachments) ? message.attachments : [],
     };
   },
 
