@@ -1,4 +1,4 @@
-// app/page.jsx ou components/HomePage.jsx
+// app/page.jsx ou components/HomePage.jsx - Thème Overlord / Nazarick
 'use client';
 
 import { useState, useRef } from 'react';
@@ -11,177 +11,73 @@ import DOMpurify from 'dompurify';
 export default function HomePage() {
   const [message, setMessage] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const {push}= useNavigate();
-  const {sendAnonimousMessage, messages, loading} = useChat();
-   const messagesEndRef = useRef(null);
+  const { push } = useNavigate();
+  const { sendAnonymousMessage, messages, loading } = useChat(); // Correction typo: sendAnonimousMessage → sendAnonymousMessage
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [attachedFiles, setAttachedFiles] = useState([]);
 
-  const handleSend =async () => {
-    if (!message.trim()) return;
+  const handleSend = async () => {
+    if (!message.trim() && attachedFiles.length === 0) return;
     console.log("Message envoyé:", message);
+    await sendAnonymousMessage(message, attachedFiles);
     setMessage('');
-    await sendAnonimousMessage(message);
+    setAttachedFiles([]);
   };
 
-  const onLoginClick = ()=>{
-    push('login')
-  }
-  const onRegisterClick = ()=>{
-    push('register')
-  }
-
-  const handleSendMessage = async (e) => {
-      e.preventDefault();
-      if ((!inputValue.trim() && attachedFiles.length === 0) || loading || !conversationId) return;
-  
-      const userMessage = inputValue.trim();
-      const files = attachedFiles;
-      
-      setInputValue('');
-      setAttachedFiles([]);
-      
-      await sendMessage(userMessage, files);
-    };
-  
-    const handleFileSelect = (e) => {
-      const files = Array.from(e.target.files);
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-      
-      const validFiles = files.filter(file => {
-        if (file.size > MAX_FILE_SIZE) {
-          alert(`Le fichier ${file.name} est trop volumineux (max 10 MB)`);
-          return false;
-        }
-        return true;
-      });
-  
-      const newFiles = validFiles.map(file => ({
-        file,
-        preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-        name: file.name,
-        type: file.type,
-        size: file.size
-      }));
-      
-      setAttachedFiles(prev => [...prev, ...newFiles]);
-    };
-  
-    const handleRemoveFile = (index) => {
-      setAttachedFiles(prev => {
-        const newFiles = [...prev];
-        if (newFiles[index].preview) {
-          URL.revokeObjectURL(newFiles[index].preview);
-        }
-        newFiles.splice(index, 1);
-        return newFiles;
-      });
-    };
-  
-    const handleCameraCapture = () => {
-      fileInputRef.current.click();
-    };
-  
-    const handleFileUpload = () => {
-      fileInputRef.current.click();
-    };
-  
-    const renderMessageContent = (message) => {
-    // Normalisation : on veut TOUJOURS un tableau (même vide)
-    const attachments = Array.isArray(message.attachments)
-      ? message.attachments
-      : message.attachments && typeof message.attachments === 'string'
-        ? safeParseAttachments(message.attachments)
-        : [];
-  
-    const imageAttachments = attachments.filter(
-      att => att && typeof att.type === 'string' && att.type.startsWith('image/')
-    );
-  
-    const otherAttachments = attachments.filter(
-      att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
-    );
-  
-    const parseMessage = (text)=> {
-      marked.setOptions({
-        gfm: true,            // Support GitHub Markdown
-        breaks: true,         // Conserve les sauts de lignes
-        headerIds: false,     // Évite les IDs inutiles
-        mangle: false         // Évite les caractères cassés
-      });
-      return DOMpurify.sanitize(marked.parse(text))
-    };
-  
-    return (
-      <div className="space-y-2 message-content-wrapper">
-        {/* Texte du message */}
-        {message.content && (
-          <div dangerouslySetInnerHTML={{__html: parseMessage(message.content)}} className="prose dark:prose-invert max-w-none leading-relaxed">
-          </div>
-        )}
-  
-        {/* Images attachées */}
-        {imageAttachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {imageAttachments.map((attachment, idx) => (
-              <div key={idx} className="relative group">
-                <img
-                  src={attachment.url || attachment.preview || attachment.dataUrl}
-                  alt={attachment.name || 'Image jointe'}
-                  className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-md object-cover"
-                  onClick={() => {
-                    const src = attachment.url || attachment.preview || attachment.dataUrl;
-                    if (src) window.open(src, '_blank');
-                  }}
-                />
-                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                  Cliquer pour agrandir
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-  
-        {/* Documents / autres fichiers */}
-        {otherAttachments.length > 0 && (
-          <div className="space-y-2 mt-3">
-            {otherAttachments.map((attachment, idx) => (
-              <a
-                key={idx}
-                href={attachment.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] ${
-                  message.role === 'user'
-                    ? 'bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30'
-                    : 'bg-gray-100 hover:bg-gray-200 border border-gray-200'
-                }`}
-              >
-                <div className={`p-2 rounded-lg ${
-                  message.role === 'user' ? 'bg-white/20' : 'bg-blue-50'
-                }`}>
-                  <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${message.role === 'user' ? 'text-white' : 'text-gray-700'}`}>
-                    {attachment.name || 'Document'}
-                  </p>
-                  <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
-                    {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
-                  </p>
-                </div>
-                <svg className={`w-5 h-5 ${message.role === 'user' ? 'text-white' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+  const onLoginClick = () => {
+    push('login');
   };
-  
-  // Fonction helper pour parser en sécurité (à mettre juste au-dessus ou dans un util)
+
+  const onRegisterClick = () => {
+    push('register');
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    
+    const validFiles = files.filter(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`Le fichier ${file.name} est trop volumineux (max 10 MB)`);
+        return false;
+      }
+      return true;
+    });
+
+    const newFiles = validFiles.map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      name: file.name,
+      type: file.type,
+      size: file.size
+    }));
+    
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const handleRemoveFile = (index) => {
+    setAttachedFiles(prev => {
+      const newFiles = [...prev];
+      if (newFiles[index].preview) {
+        URL.revokeObjectURL(newFiles[index].preview);
+      }
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  };
+
+  const handleFileUpload = () => {
+    fileInputRef.current.click();
+  };
+
+  const formatMessage = (content) => {
+    if (!content) return '';
+    const rawHtml = marked(content);
+    return DOMpurify.sanitize(rawHtml);
+  };
+
+  // Fonction pour parser attachments en sécurité
   function safeParseAttachments(value) {
     if (!value) return [];
     try {
@@ -192,251 +88,348 @@ export default function HomePage() {
       return [];
     }
   }
-  
-     
 
-  
+  const renderMessageContent = (message) => {
+    // Normalisation des attachments
+    const attachments = Array.isArray(message.attachments)
+      ? message.attachments
+      : message.attachments && typeof message.attachments === 'string'
+        ? safeParseAttachments(message.attachments)
+        : [];
+
+    const imageAttachments = attachments.filter(
+      att => att && typeof att.type === 'string' && att.type.startsWith('image/')
+    );
+
+    const otherAttachments = attachments.filter(
+      att => att && typeof att.type === 'string' && !att.type.startsWith('image/')
+    );
+
+    return (
+      <div className="space-y-3 message-content-wrapper">
+        {/* Texte du message */}
+        {message.content && (
+          <div
+            className="prose prose-invert max-w-none prose-p:my-2 prose-li:my-1 prose-headings:text-[hsl(42,50%,54%)] prose-headings:font-bold prose-headings:uppercase prose-headings:tracking-wide prose-code:text-[hsl(142,70%,55%)] prose-code:bg-[hsl(260,25%,7%)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-a:text-[hsl(42,50%,60%)] hover:prose-a:text-[hsl(42,50%,70%)]"
+            dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
+          />
+        )}
+
+        {/* Images attachées */}
+        {imageAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-3 mt-3">
+            {imageAttachments.map((attachment, idx) => (
+              <div key={idx} className="relative group">
+                <img
+                  src={attachment.url || attachment.preview || attachment.dataUrl}
+                  alt={attachment.name || 'Image jointe'}
+                  className="max-w-xs max-h-64 rounded-xl cursor-pointer hover:opacity-90 transition-opacity shadow-[0_0_15px_rgba(139,0,0,0.2)] object-cover border border-[hsl(260,15%,14%)]"
+                  onClick={() => {
+                    const src = attachment.url || attachment.preview || attachment.dataUrl;
+                    if (src) window.open(src, '_blank');
+                  }}
+                />
+                <div className="absolute bottom-2 left-2 bg-[hsl(260,20%,10%)]/80 backdrop-blur-sm text-[hsl(42,30%,82%)] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  Agrandir
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Documents / autres fichiers */}
+        {otherAttachments.length > 0 && (
+          <div className="space-y-3 mt-3">
+            {otherAttachments.map((attachment, idx) => (
+              <a
+                key={idx}
+                href={attachment.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-[1.02] border border-[hsl(260,15%,14%)] bg-[hsl(260,20%,10%)] hover:bg-[hsl(260,15%,14%)] text-[hsl(42,30%,82%)]`}
+              >
+                <div className="p-2 rounded-lg bg-[hsl(260,15%,14%)]">
+                  <svg className="w-5 h-5 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {attachment.name || 'Document'}
+                  </p>
+                  <p className="text-xs text-[hsl(42,30%,65%)]">
+                    {attachment.size ? `${(attachment.size / 1024).toFixed(1)} KB` : '—'}
+                  </p>
+                </div>
+                <svg className="w-5 h-5 text-[hsl(42,30%,65%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header - Responsive */}
-      <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-[hsl(260,25%,7%)] to-[hsl(260,20%,10%)] relative overflow-hidden">
+      {/* Motif de fond subtil */}
+      <div
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, hsl(42,50%,54%) 1px, transparent 0)`,
+          backgroundSize: '40px 40px',
+        }}
+      />
+
+      {/* Header */}
+      <header className="bg-[hsl(260,20%,10%)] border-b border-[hsl(260,15%,14%)] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-50 shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center">
-            <span className="text-white text-lg sm:text-xl font-bold">⚡</span>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[hsl(0,60%,30%)] to-[hsl(0,60%,38%)] rounded-lg sm:rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.3)]">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[hsl(42,50%,70%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Chat App</h1>
-        </div>
-        
-        {/* Desktop Navigation */}
-        <div className="hidden sm:flex items-center gap-3">
-          <button 
-            onClick={onLoginClick} 
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-          >
-            Se connecter
-          </button>
-          <button 
-            onClick={onRegisterClick} 
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 transition"
-          >
-            S'inscrire
-          </button>
+          <h1 className="text-xl sm:text-2xl font-bold text-[hsl(42,50%,54%)] tracking-wide uppercase">Nazarick Chat</h1>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Navigation Desktop */}
+        <nav className="hidden md:flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={onLoginClick}
+            className="px-4 sm:px-6 py-2 bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] text-[hsl(42,50%,70%)] rounded-lg transition-all shadow-[0_0_15px_rgba(139,0,0,0.2)] active:scale-95 text-sm uppercase tracking-wide"
+          >
+            Connexion
+          </button>
+          <button
+            onClick={onRegisterClick}
+            className="px-4 sm:px-6 py-2 bg-[hsl(260,20%,10%)] hover:bg-[hsl(260,15%,14%)] text-[hsl(42,30%,82%)] rounded-lg transition-all border border-[hsl(260,15%,14%)] active:scale-95 text-sm uppercase tracking-wide"
+          >
+            Inscription
+          </button>
+        </nav>
+
+        {/* Menu Mobile */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="sm:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+          className="md:hidden p-2 text-[hsl(42,30%,65%)] hover:text-[hsl(42,30%,82%)] hover:bg-[hsl(260,15%,14%)] rounded-lg transition-colors"
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
-
-        {/* Mobile Menu Dropdown */}
-        {isMobileMenuOpen && (
-          <div className="sm:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg">
-            <div className="flex flex-col p-4 space-y-2">
-              <button 
-                onClick={() => { onLoginClick(); setIsMobileMenuOpen(false); }}
-                className="w-full px-4 py-3 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              >
-                Se connecter
-              </button>
-              <button 
-                onClick={() => { onRegisterClick(); setIsMobileMenuOpen(false); }}
-                className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-90 transition"
-              >
-                S'inscrire
-              </button>
-            </div>
-          </div>
-        )}
       </header>
 
-      {(!messages.length>0) ?
-       (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center max-w-2xl">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <span className="text-white text-4xl">💬</span>
+      {/* Menu Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-[60px] right-4 bg-[hsl(260,20%,10%)] rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] border border-[hsl(260,15%,14%)] py-2 z-50">
+          <button
+            onClick={onLoginClick}
+            className="w-full px-6 py-3 hover:bg-[hsl(260,15%,14%)] text-[hsl(42,30%,82%)] text-left text-sm uppercase tracking-wide"
+          >
+            Connexion
+          </button>
+          <button
+            onClick={onRegisterClick}
+            className="w-full px-6 py-3 hover:bg-[hsl(260,15%,14%)] text-[hsl(42,30%,82%)] text-left text-sm uppercase tracking-wide"
+          >
+            Inscription
+          </button>
+        </div>
+      )}
+
+      {messages.length === 0 && !loading ? (
+        <div className="flex-1 flex items-center justify-center p-8 text-center space-y-6">
+          <div className="w-24 h-24 mx-auto bg-[hsl(0,60%,35%,0.15)] rounded-2xl flex items-center justify-center border border-[hsl(0,60%,35%,0.25)] shadow-[0_0_20px_rgba(139,0,0,0.2)]">
+            <svg className="w-14 h-14 text-[hsl(42,50%,54%)]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
+            </svg>
           </div>
-          
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
-            Bienvenue sur Chat App
-          </h2>
-          
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 px-4">
-            Discutez avec une IA intelligente propulsée par Gemini. 
-            Posez vos questions, partagez des fichiers, et obtenez des réponses instantanées.
-          </p>
-          
-          {/* Features - Responsive Grid */}
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center text-sm text-gray-500 px-4">
-            <div className="flex items-center justify-center sm:justify-start gap-2 bg-green-50 px-4 py-2 rounded-lg">
-              <span className="text-green-500 text-lg">✓</span>
-              <span>Conversations illimitées</span>
-            </div>
-            <div className="flex items-center justify-center sm:justify-start gap-2 bg-blue-50 px-4 py-2 rounded-lg">
-              <span className="text-blue-500 text-lg">✓</span>
-              <span>Support de fichiers</span>
-            </div>
-            <div className="flex items-center justify-center sm:justify-start gap-2 bg-purple-50 px-4 py-2 rounded-lg">
-              <span className="text-purple-500 text-lg">✓</span>
-              <span>Historique sauvegardé</span>
-            </div>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-[hsl(42,50%,54%)] tracking-wider uppercase">
+              Bienvenue à Nazarick
+            </h2>
+            <p className="text-[hsl(42,30%,65%)] text-base">
+              Commencez votre audience avec le Sorcier Suprême<br/>
+              ou connectez-vous pour plus de pouvoirs
+            </p>
+          </div>
+          <div className="flex justify-center gap-4 mt-8">
+            <div className="w-16 h-[2px] bg-gradient-to-r from-transparent via-[hsl(42,50%,54%,0.5)] to-transparent"></div>
+            <div className="w-3 h-3 border-2 border-[hsl(42,50%,54%)] rotate-45"></div>
+            <div className="w-16 h-[2px] bg-gradient-to-r from-transparent via-[hsl(42,50%,54%,0.5)] to-transparent"></div>
           </div>
         </div>
-      </div>
-      )
-    
-  
-    :(
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-gray-50 via-blue-50/20 to-purple-50/20">
-      
-  
-        {/* Zone des messages */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading && messages.length === 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-20 w-20 border-4 border-purple-200 border-t-purple-600"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 custom-scrollbar relative z-10">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex gap-4 animate-fadeIn ${
+                  msg.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(0,60%,35%)] to-[hsl(0,60%,40%)] flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.3)]">
+                    <svg className="w-6 h-6 text-[hsl(42,50%,70%)]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
+                    </svg>
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-3xl ${
+                    msg.role === 'user'
+                      ? 'bg-[hsl(0,60%,30%)] text-[hsl(42,50%,70%)] rounded-2xl rounded-tr-sm border border-[hsl(0,50%,40%,0.3)] shadow-[0_0_15px_rgba(139,0,0,0.2)]'
+                      : 'bg-[hsl(260,20%,10%)] text-[hsl(42,30%,82%)] rounded-2xl rounded-tl-sm border border-[hsl(260,15%,14%)]'
+                  } px-5 py-4`}
+                >
+                  {renderMessageContent(msg)}
+                  <p className="text-xs mt-3 text-[hsl(42,30%,65%)] flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {new Date(msg.createdAt).toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+
+                {msg.role === 'user' && (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(42,50%,54%)] to-[hsl(42,45%,60%)] flex items-center justify-center flex-shrink-0 text-[hsl(260,25%,7%)] font-bold text-lg shadow-[0_0_20px_rgba(212,175,55,0.2)]">
+                    {msg.userId?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex gap-4 justify-start animate-fadeIn">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(0,60%,35%)] to-[hsl(0,60%,40%)] flex items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.3)] border border-[hsl(0,50%,40%,0.3)]">
+                  <svg className="w-6 h-6 text-[hsl(42,50%,70%)]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12c0 3.07 1.39 5.81 3.57 7.63L7 22h4v-2h2v2h4l1.43-2.37C20.61 17.81 22 15.07 22 12c0-5.52-4.48-10-10-10zm-3 14c-.83 0-1.5-.67-1.5-1.5S8.17 13 9 13s1.5.67 1.5 1.5S9.83 16 9 16zm6 0c-.83 0-1.5-.67-1.5-1.5S14.17 13 15 13s1.5.67 1.5 1.5S15.83 16 15 16zm-3-4c-1.1 0-2-.45-2-1s.9-1 2-1 2 .45 2 1-.9 1-2 1z"/>
                   </svg>
                 </div>
-              </div>
-            </div>
-          ): (
-            <div className="max-w-4xl mx-auto space-y-6">
-              {messages.map((message, index) => (
-                <div
-                  key={message.id || index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
-                >
-                  <div className="flex gap-3 max-w-[85%]">
-                    {/* Avatar Assistant */}
-                    {message.role === 'assistant' && (
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                      </div>
-                    )}
-  
-                    <div
-                      className={`rounded-2xl px-5 py-4 shadow-md transition-all hover:shadow-lg p-3 bg-gray-100 max-w-[80%] ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white'
-                          : 'bg-white text-gray-800 border border-gray-100'
-                      }`}
-                    >
-                      {renderMessageContent(message)}
-                      <p
-                        className={`text-xs mt-3 flex items-center gap-1 ${
-                          message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
-                        }`}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-  
-                    {/* Avatar Utilisateur */}
-                    {message.role === 'user' && (
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/30">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                    )}
+                <div className="bg-[hsl(260,20%,10%)] rounded-2xl rounded-tl-sm px-5 py-4 border border-[hsl(260,15%,14%)]">
+                  <div className="flex gap-2 items-center">
+                    <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-[hsl(42,50%,54%)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
                 </div>
-              ))}
-  
-              {loading && messages.length > 0 && (
-                <div className="flex justify-start animate-fadeIn">
-                  <div className="flex gap-3 max-w-[85%]">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-blue-600 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+      )}
+
+      {/* Zone de saisie */}
+      <div className="border-t border-[hsl(260,15%,14%)] bg-[hsl(260,25%,7%)] relative z-10">
+        <div className="max-w-5xl mx-auto p-4">
+          {/* Fichiers attachés */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedFiles.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="relative bg-[hsl(260,20%,10%)] rounded-lg border border-[hsl(260,15%,14%)] p-2 flex items-center gap-2 group"
+                >
+                  {file.preview ? (
+                    <img src={file.preview} alt={file.name} className="w-12 h-12 object-cover rounded" />
+                  ) : (
+                    <div className="w-12 h-12 bg-[hsl(260,15%,14%)] rounded flex items-center justify-center">
+                      <svg className="w-6 h-6 text-[hsl(42,50%,54%)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <div className="bg-white rounded-2xl px-5 py-4 shadow-md border border-gray-100">
-                      <div className="flex space-x-2">
-                        <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-bounce"></div>
-                        <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2.5 h-2.5 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                      </div>
-                    </div>
+                  )}
+                  <div className="text-xs text-[hsl(42,30%,65%)] max-w-[120px] truncate">
+                    {file.name}
                   </div>
+                  <button
+                    onClick={() => handleRemoveFile(idx)}
+                    className="ml-2 p-1 rounded-full bg-[hsl(0,60%,35%,0.2)] hover:bg-[hsl(0,60%,35%,0.4)] text-[hsl(0,50%,60%)] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-              )}
-  
-              <div ref={messagesEndRef} />
+              ))}
             </div>
           )}
-        </div>
-        </div>)};
 
-      {/* Zone de saisie (fixe en bas) - Responsive */}
-      <div className="border-t border-gray-200 bg-white px-3 sm:px-6 py-3 sm:py-4 safe-area-bottom">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-end gap-2 sm:gap-3">
-            {/* Bouton pièce jointe - caché sur très petit mobile */}
-            <button className="hidden xs:block p-2 sm:p-3 text-gray-500 hover:bg-gray-100 rounded-lg transition flex-shrink-0">
-              <Paperclip size={18} className="sm:w-5 sm:h-5" />
-            </button>
-            
-            <div className="flex-1 relative">
+          {/* Input caché pour fichiers */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelect}
+            multiple
+          />
+
+          {/* Formulaire */}
+          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative">
+            <div className="bg-[hsl(260,20%,10%)] rounded-2xl border border-[hsl(260,15%,14%)] focus-within:border-[hsl(42,50%,54%,0.3)] transition-all shadow-[0_4px_20px_rgba(0,0,0,0.3)] flex items-end gap-3 px-4 py-3">
+              {/* Bouton attachment */}
+              <button
+                type="button"
+                onClick={handleFileUpload}
+                className="text-[hsl(42,50%,54%)] hover:text-[hsl(42,45%,60%)] transition-colors p-1.5 hover:bg-[hsl(42,50%,54%,0.08)] rounded-lg"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              {/* Textarea */}
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => {
+                placeholder="Posez votre question au Sorcier Suprême..."
+                className="flex-1 bg-transparent text-[hsl(42,30%,82%)] placeholder-[hsl(260,10%,35%)] focus:outline-none text-sm sm:text-[15px] resize-none overflow-hidden"
+                rows={1}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
                   }
                 }}
-                placeholder="Écrivez votre message..."
-                className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
-                rows={1}
-                style={{ maxHeight: '120px' }}
               />
+
+              {/* Bouton envoyer */}
+              <button
+                type="submit"
+                disabled={loading || (!message.trim() && attachedFiles.length === 0)}
+                className="bg-gradient-to-r from-[hsl(0,60%,30%)] to-[hsl(0,60%,35%)] hover:from-[hsl(0,60%,35%)] hover:to-[hsl(0,60%,40%)] disabled:from-[hsl(260,15%,14%)] disabled:to-[hsl(260,15%,14%)] text-[hsl(42,50%,70%)] disabled:text-[hsl(260,10%,35%)] p-2 rounded-lg transition-all disabled:cursor-not-allowed shadow-[0_0_15px_rgba(139,0,0,0.2)] disabled:shadow-none active:scale-95"
+              >
+                <Send className="w-5 h-5" />
+              </button>
             </div>
-            
-            <button
-              onClick={handleSend}
-              disabled={!message.trim()}
-              className="p-2 sm:p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              <Send size={18} className="sm:w-5 sm:h-5" />
-            </button>
-          </div>
-          
-          <p className="text-xs text-gray-500 text-center mt-2 sm:mt-3 px-2">
-            Chat App peut faire des erreurs. Vérifiez les informations importantes.
+          </form>
+
+          <p className="text-xs text-[hsl(42,30%,65%)] text-center mt-3 px-2">
+            Le Sorcier Suprême peut commettre des erreurs. Vérifiez les informations importantes.
           </p>
         </div>
       </div>
 
       <style jsx>{`
-        /* Support pour le safe area sur iOS */
-        .safe-area-bottom {
-          padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        
-        /* Breakpoint personnalisé pour très petits écrans */
-        @media (min-width: 380px) {
-          .xs\\:block {
-            display: block;
-          }
-        }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: hsl(260,25%,7%); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(42,50%,54%,0.2); border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(42,50%,54%,0.3); }
       `}</style>
     </div>
   );
