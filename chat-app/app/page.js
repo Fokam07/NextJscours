@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
@@ -17,6 +17,9 @@ export default function Home() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(null);
   const { pop, push, route } = useNavigate();
+  
+  const [showCVGenerator, setShowCVGenerator] = useState(false);
+  const [generatedData, setGeneratedData] = useState(null);
 
   // ── CV state ──────────────────────────────────────────────────────────────
   // null          → affiche ChatArea
@@ -120,7 +123,6 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOut();
-    push('home', true);
     setCurrentConversationId(null);
     setCurrentRoleId(null);
     setCvState(null);
@@ -153,7 +155,7 @@ export default function Home() {
   // ── Determine main panel ──────────────────────────────────────────────────
   // FIX bug 3: aligner les props avec ce que CVGenerator expose réellement
   const renderMainPanel = () => {
-    if (cvState === 'generator') {
+    if (showCVGenerator) {
       return (
         <CVGenerator
           user={user}
@@ -165,13 +167,12 @@ export default function Home() {
       );
     }
 
-    if (cvState && typeof cvState === 'object' && cvState.variants) {
+    if (generatedData) {
       return (
         <CVViewer
           // CVViewer accepte data en tableau ou objet unique
           data={cvState.variants}
-          initialVariantIdx={cvState.initialIdx || 0}
-          onBack={() => setCvState('generator')}
+          onclose={()=> setGeneratedData(null)}
         />
       );
     }
@@ -199,9 +200,9 @@ export default function Home() {
         user={user}
         onSelectRole={handleSelectRole}
         currentRoleId={currentRoleId}
-        onShowCVGenerator={() => setCvState('generator')}
-        // Indique à la sidebar quel onglet est actif
-        isShowingCV={cvState !== null}
+        onShowCVGenerator={() => setShowCVGenerator(true)}
+        onHideCVGenerator={() => { setShowCVGenerator(false); setGeneratedData(null); }}
+        isShowingCV={showCVGenerator || !!generatedData}
       />
 
       {/* Panneau principal */}

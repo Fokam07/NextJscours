@@ -41,3 +41,9 @@ export function useCv(userId) {
 
   return { generate, loading, result };
 }
+
+
+
+
+
+

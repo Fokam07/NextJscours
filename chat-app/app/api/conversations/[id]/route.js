@@ -5,7 +5,7 @@ import { conversationService } from '@/backend/services/conversation.service';
  * GET /api/conversations
  * Récupérer toutes les conversations de l'utilisateur
  */
-export async function GET(request) {
+export async function GET(request, { params }) {
   try {
     const userId = request.headers.get('x-user-id');
     
@@ -16,14 +16,17 @@ export async function GET(request) {
       );
     }
 
-    const conversations = await conversationService.getUserConversations(userId);
+    const conversation = await conversationService.getConversationById(
+      params.id,
+      userId
+    );
     
-    return NextResponse.json(conversations);
+    return NextResponse.json(conversation);
   } catch (error) {
-    console.error('Erreur GET /api/conversations:', error);
+    console.error('Erreur GET /api/conversations/[id]:', error);
     return NextResponse.json(
       { error: error.message },
-      { status: 500 }
+      { status: error.message === 'Conversation non trouvée' ? 404 : 500 }
     );
   }
 }
